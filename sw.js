@@ -1,7 +1,7 @@
 // Service worker lite: cachea el app shell para que abra al instante y funcione sin conexión.
 // Las tasas en vivo siguen intentando red-primero; todo lo demás es cache-first.
 
-const CACHE = "calc-bs-v4";
+const CACHE = "calc-bs-v5";
 const SHELL = [
   "./",
   "./index.html",

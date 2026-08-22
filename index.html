@@ -59,7 +59,7 @@
     color-scheme:light;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
+  html,body{height:100%; overflow:hidden; overscroll-behavior:none;}
   body{
     margin:0;
     background:var(--bg);
@@ -307,8 +307,7 @@
     .app{
       max-width:none;
       width:100%;
-      height:100%;
-      min-height:100dvh;
+      height:100dvh;
       border-radius:0;
       box-shadow:none;
       border:none;
@@ -407,64 +406,34 @@
     <button class="key" data-k="3">3</button>
     <button class="key op" data-k="add">+</button>
 
-    <button class="key mode-key" id="modeBtn">USD<br>⇄ Bs</button>
+    <button class="key mode-key" id="modeBtn">Bs<br>⇄ USD</button>
     <button class="key" data-k="0">0</button>
     <button class="key" data-k="dot">,</button>
     <div class="key-eq-cell"><button class="key eq" data-k="eq">=</button></div>
   </div>
 
-  <div class="footnote">Toca una tasa para editarla · valores de referencia</div>
+  <div class="footnote">Toca una tasa para editarla · valores de referencia · <span id="appVersion"></span></div>
   <div class="install-row"><button class="install-btn" id="installBtn">Instalar app</button></div>
 </div>
 
+<script src="calc.js"></script>
 <script>
 (function(){
   "use strict";
+
+  var APP_VERSION = "1.1.0";
+  var versionEl = document.getElementById('appVersion');
+  if(versionEl) versionEl.textContent = "v" + APP_VERSION;
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
   var historyBox = document.getElementById('historyBox');
 
-  var OPS = ["+","−","×","÷"];
-  function isOperator(t){ return OPS.indexOf(t) !== -1; }
-  function isNumberToken(t){ return t !== undefined && t !== null && !isOperator(t) && t !== "(" && t !== ")"; }
-
-  var tokens = [];
-  var currentNumber = "";
-  var justEqualed = false;
-  var history = []; // {expr, result}
-
-  function countOpen(toks){
-    var c = 0;
-    for(var i=0;i<toks.length;i++){ if(toks[i]==="(") c++; else if(toks[i]===")") c--; }
-    return c;
-  }
-
-  function groupNumber(str){
-    if(str === "") return "";
-    var neg = str.startsWith("-");
-    if(neg) str = str.slice(1);
-    var parts = str.split(".");
-    var intPart = parts[0] === "" ? "0" : parts[0];
-    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    var out = intPart;
-    if(parts.length > 1) out += "," + parts[1];
-    return (neg ? "-" : "") + out;
-  }
-
-  function displayToken(t){
-    return (isOperator(t) || t === "(" || t === ")") ? t : groupNumber(t);
-  }
-
-  function liveExprString(){
-    var parts = tokens.map(displayToken);
-    if(currentNumber !== "") parts.push(groupNumber(currentNumber));
-    var s = parts.join('');
-    return s === "" ? "0" : s;
-  }
+  var CE = window.CalcEngine;
+  var engine = CE.createEngine();
 
   function renderHistory(){
-    var shown = history.slice(-20);
+    var shown = engine.history.slice(-20);
     var classes = ["op1","op2","op3","op4"];
     historyBox.innerHTML = shown.map(function(h, i){
       var c = i >= shown.length - 4 ? classes[4 - (shown.length - i)] : "op1";
@@ -474,167 +443,27 @@
   }
 
   function render(){
-    if(justEqualed){
+    if(engine.justEqualed){
       digitsEl.classList.add('is-result');
-      digitsEl.textContent = groupNumber(currentNumber);
-      exprLineEl.textContent = history.length ? (history[history.length-1].expr + " =") : "";
+      digitsEl.textContent = CE.groupNumber(engine.currentNumber);
+      var h = engine.history;
+      exprLineEl.textContent = h.length ? (h[h.length-1].expr + " =") : "";
     } else {
       digitsEl.classList.remove('is-result');
-      digitsEl.textContent = liveExprString();
+      digitsEl.textContent = engine.liveExprString();
       exprLineEl.innerHTML = "&nbsp;";
     }
     renderHistory();
     updateConversions();
   }
 
-  function pressDigit(d){
-    if(justEqualed){
-      tokens = [];
-      currentNumber = d === "." ? "0." : d;
-      justEqualed = false;
-      render();
-      return;
-    }
-    if(currentNumber === "0" && d !== "."){ currentNumber = d; }
-    else if(d === "." && currentNumber.includes(".")){ /* ignore */ }
-    else if(d === "." && currentNumber === ""){ currentNumber = "0."; }
-    else {
-      if(currentNumber.replace(/[.-]/g,"").length >= 14) return;
-      currentNumber += d;
-    }
-    render();
-  }
-
-  function backspace(){
-    if(justEqualed){
-      tokens = []; currentNumber = ""; justEqualed = false; render(); return;
-    }
-    if(currentNumber !== ""){
-      currentNumber = currentNumber.length > 1 ? currentNumber.slice(0, -1) : "";
-    } else if(tokens.length){
-      tokens.pop();
-    }
-    render();
-  }
-
-  function percent(){
-    if(currentNumber === "") return;
-    var n = parseFloat(currentNumber) || 0;
-    currentNumber = String(n / 100);
-    render();
-  }
-
-  function clearAll(){
-    tokens = []; currentNumber = ""; justEqualed = false;
-    render();
-  }
-
-  function pressOperator(op){
-    if(justEqualed){
-      tokens = [currentNumber];
-      currentNumber = "";
-      justEqualed = false;
-    }
-    if(currentNumber !== ""){
-      tokens.push(currentNumber);
-      currentNumber = "";
-    }
-    if(tokens.length === 0) return;
-    var last = tokens[tokens.length - 1];
-    if(isOperator(last)){
-      tokens[tokens.length - 1] = op;
-    } else if(last === "("){
-      return; // no operand yet after "("
-    } else {
-      tokens.push(op);
-    }
-    render();
-  }
-
-  function pressParen(which){
-    if(justEqualed){
-      if(which === "("){ tokens = []; currentNumber = ""; justEqualed = false; }
-      else { return; }
-    }
-    if(which === ")"){
-      var openNow = countOpen(tokens);
-      var last = currentNumber !== "" ? null : (tokens.length ? tokens[tokens.length-1] : null);
-      if(currentNumber === "" && (last === null || isOperator(last) || last === "(")) return;
-      if(openNow <= 0) return;
-    }
-    if(currentNumber !== ""){
-      tokens.push(currentNumber);
-      currentNumber = "";
-      if(which === "(") tokens.push("×"); // implicit multiplication: 5( -> 5×(
-    } else if(which === "(" && tokens.length){
-      var lastTok = tokens[tokens.length - 1];
-      if(isNumberToken(lastTok) || lastTok === ")"){ tokens.push("×"); }
-    }
-    tokens.push(which);
-    render();
-  }
-
-  function evalExpr(toks){
-    var pos = 0;
-    function factor(){
-      var t = toks[pos];
-      if(t === "("){ pos++; var v = expr(); if(toks[pos] === ")") pos++; return v; }
-      if(t === "−"){ pos++; return -factor(); }
-      pos++;
-      return parseFloat(t);
-    }
-    function term(){
-      var v = factor();
-      while(toks[pos] === "×" || toks[pos] === "÷"){
-        var op = toks[pos]; pos++;
-        var rhs = factor();
-        v = op === "×" ? v * rhs : (rhs === 0 ? 0 : v / rhs);
-      }
-      return v;
-    }
-    function expr(){
-      var v = term();
-      while(toks[pos] === "+" || toks[pos] === "−"){
-        var op = toks[pos]; pos++;
-        var rhs = term();
-        v = op === "+" ? v + rhs : v - rhs;
-      }
-      return v;
-    }
-    return expr();
-  }
-
-  function trimResult(n){
-    if(!isFinite(n)) return "0";
-    var s = n.toFixed(8).replace(/0+$/,"").replace(/\.$/,"");
-    if(s.length > 14) s = parseFloat(n.toPrecision(10)).toString();
-    return s;
-  }
-
-  function pushHistory(expr, resultStr){
-    history.push({expr: expr, result: resultStr});
-    if(history.length > 20) history.shift();
-  }
-
-  function equals(){
-    var toks = tokens.slice();
-    if(currentNumber !== ""){ toks.push(currentNumber); }
-    else if(toks.length && isOperator(toks[toks.length - 1])){ toks.pop(); }
-    var openCount = countOpen(toks);
-    for(var i = 0; i < openCount; i++) toks.push(")");
-    if(toks.length < 1) return;
-
-    var exprDisplay = toks.map(displayToken).join('');
-    var resultNum;
-    try{ resultNum = evalExpr(toks); }catch(e){ resultNum = NaN; }
-    var resultVal = trimResult(resultNum);
-    pushHistory(exprDisplay, groupNumber(resultVal));
-
-    tokens = [];
-    currentNumber = resultVal;
-    justEqualed = true;
-    render();
-  }
+  function pressDigit(d){ engine.pressDigit(d); render(); }
+  function backspace(){ engine.backspace(); render(); }
+  function percent(){ engine.percent(); render(); }
+  function clearAll(){ engine.clearAll(); render(); }
+  function pressOperator(op){ engine.pressOperator(op); render(); }
+  function pressParen(which){ engine.pressParen(which); render(); }
+  function equals(){ engine.equals(); render(); }
 
   var keyMap = {
     ac: clearAll, back: backspace, pct: percent,
@@ -671,44 +500,24 @@
   });
 
   // ---------- Currency conversion ----------
-  var mode = "usd";
+  var mode = "ves";
   var modeBtn = document.getElementById('modeBtn');
   var bcvInput = document.getElementById('bcvRate');
   var p2pInput = document.getElementById('p2pRate');
   var bcvResult = document.getElementById('bcvResult');
   var p2pResult = document.getElementById('p2pResult');
 
-  function currentValue(){
-    if(currentNumber !== "") return parseFloat(currentNumber) || 0;
-    for(var i = tokens.length - 1; i >= 0; i--){
-      if(isNumberToken(tokens[i])) return parseFloat(tokens[i]) || 0;
-    }
-    return 0;
-  }
-
-  function parseRate(str){
-    var n = parseFloat(String(str).replace(/\./g,"").replace(",", "."));
-    return isFinite(n) && n > 0 ? n : 0;
-  }
-
-  function fmtVES(n){
-    return "Bs " + n.toLocaleString("es-VE", {minimumFractionDigits:2, maximumFractionDigits:2});
-  }
-  function fmtUSD(n){
-    return "$" + n.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
-  }
-
   function updateConversions(){
-    var amount = currentValue();
-    var bcvRate = parseRate(bcvInput.value);
-    var p2pRate = parseRate(p2pInput.value);
+    var amount = engine.currentValue();
+    var bcvRate = CE.parseRate(bcvInput.value);
+    var p2pRate = CE.parseRate(p2pInput.value);
 
     if(mode === "usd"){
-      bcvResult.textContent = fmtVES(amount * bcvRate);
-      p2pResult.textContent = fmtVES(amount * p2pRate);
+      bcvResult.textContent = CE.fmtVES(amount * bcvRate);
+      p2pResult.textContent = CE.fmtVES(amount * p2pRate);
     } else {
-      bcvResult.textContent = bcvRate ? fmtUSD(amount / bcvRate) : fmtUSD(0);
-      p2pResult.textContent = p2pRate ? fmtUSD(amount / p2pRate) : fmtUSD(0);
+      bcvResult.textContent = bcvRate ? CE.fmtUSD(amount / bcvRate) : CE.fmtUSD(0);
+      p2pResult.textContent = p2pRate ? CE.fmtUSD(amount / p2pRate) : CE.fmtUSD(0);
     }
   }
 

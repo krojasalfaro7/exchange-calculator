@@ -278,6 +278,19 @@
     padding:8px 12px 4px;
     line-height:1.4;
   }
+  .update-badge{
+    background:none;
+    border:none;
+    color:var(--accent);
+    font-size:10.5px;
+    font-weight:700;
+    cursor:pointer;
+    padding:0;
+    margin-left:2px;
+    text-decoration:underline;
+    font-family:inherit;
+  }
+  .update-badge[hidden]{display:none;}
 
   .install-row{
     padding:0 12px;
@@ -412,7 +425,7 @@
     <div class="key-eq-cell"><button class="key eq" data-k="eq">=</button></div>
   </div>
 
-  <div class="footnote">Toca una tasa para editarla · valores de referencia · <span id="appVersion"></span></div>
+  <div class="footnote">Toca una tasa para editarla · valores de referencia · <span id="appVersion"></span><button id="updateBadge" class="update-badge" hidden>· Nueva versión, toca para actualizar</button></div>
   <div class="install-row"><button class="install-btn" id="installBtn">Instalar app</button></div>
 </div>
 
@@ -421,7 +434,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.2.0";
+  var APP_VERSION = "1.3.0";
   var versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = "v" + APP_VERSION;
 
@@ -669,10 +682,42 @@
   window.addEventListener('offline', updateStatus);
   updateStatus();
 
-  // ---------- PWA: service worker registration ----------
+  // ---------- PWA: service worker registration + update banner ----------
+  var updateBadge = document.getElementById('updateBadge');
+
   if('serviceWorker' in navigator){
+    // sw.js llama a skipWaiting()/clients.claim() apenas instala, así que un
+    // "controllerchange" que no sea el primero (esta pestaña ya tenía un SW
+    // activo antes) significa que una versión nueva acaba de tomar control.
+    var hadController = !!navigator.serviceWorker.controller;
+    var swRegistration = null;
+
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(hadController && updateBadge) updateBadge.hidden = false;
+      hadController = true;
+    });
+
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(){ /* offline no disponible en este navegador/origen */ });
+      navigator.serviceWorker.register('sw.js').then(function(reg){
+        swRegistration = reg;
+      }).catch(function(){ /* offline no disponible en este navegador/origen */ });
+    });
+
+    // El navegador solo revisa sw.js por su cuenta en momentos puntuales;
+    // forzamos la revisión al volver a la pestaña y cada 5 minutos abierta.
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible' && swRegistration){
+        swRegistration.update().catch(function(){});
+      }
+    });
+    setInterval(function(){
+      if(swRegistration) swRegistration.update().catch(function(){});
+    }, 5 * 60 * 1000);
+  }
+
+  if(updateBadge){
+    updateBadge.addEventListener('click', function(){
+      location.reload();
     });
   }
 

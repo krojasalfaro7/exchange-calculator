@@ -19,15 +19,7 @@
   }
 
   function groupNumber(str) {
-    if (str === "") return "";
-    var neg = str.startsWith("-");
-    if (neg) str = str.slice(1);
-    var parts = str.split(".");
-    var intPart = parts[0] === "" ? "0" : parts[0];
-    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    var out = intPart;
-    if (parts.length > 1) out += "," + parts[1];
-    return (neg ? "-" : "") + out;
+    return str; // no thousands separator; "." stays as the decimal point as-is
   }
 
   function displayToken(t) {
@@ -72,15 +64,15 @@
   }
 
   function parseRate(str) {
-    var n = parseFloat(String(str).replace(/\./g, "").replace(",", "."));
+    var n = parseFloat(String(str).replace(",", ".")); // "," still accepted as a decimal point for old saved values
     return isFinite(n) && n > 0 ? n : 0;
   }
 
   function fmtVES(n) {
-    return "Bs " + n.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return "Bs " + n.toFixed(2);
   }
   function fmtUSD(n) {
-    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return "$" + n.toFixed(2);
   }
 
   function createEngine() {

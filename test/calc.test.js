@@ -4,16 +4,17 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const CE = require("../calc.js");
 
-test("groupNumber formats thousands with . and decimals with ,", () => {
-  assert.equal(CE.groupNumber("1234567"), "1.234.567");
-  assert.equal(CE.groupNumber("1234.5"), "1.234,5");
-  assert.equal(CE.groupNumber("-1234"), "-1.234");
+test("groupNumber leaves the number as-is: no thousands separator, . stays as the decimal point", () => {
+  assert.equal(CE.groupNumber("1234567"), "1234567");
+  assert.equal(CE.groupNumber("1234.5"), "1234.5");
+  assert.equal(CE.groupNumber("-1234"), "-1234");
   assert.equal(CE.groupNumber(""), "");
 });
 
-test("parseRate reads es-VE style numbers (1.234,56)", () => {
-  assert.equal(CE.parseRate("771,07"), 771.07);
-  assert.equal(CE.parseRate("1.234,56"), 1234.56);
+test("parseRate reads plain dot-decimal numbers", () => {
+  assert.equal(CE.parseRate("771.07"), 771.07);
+  assert.equal(CE.parseRate("1234.56"), 1234.56);
+  assert.equal(CE.parseRate("771,07"), 771.07); // legacy comma-decimal values still parse
   assert.equal(CE.parseRate("abc"), 0);
   assert.equal(CE.parseRate("-5"), 0);
 });

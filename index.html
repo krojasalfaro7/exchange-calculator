@@ -363,14 +363,14 @@
       <div class="conv-row">
         <span class="conv-label"><span class="dot bcv"></span>BCV</span>
         <span>
-          <input class="rate-edit" id="bcvRate" value="771,07" inputmode="decimal">
+          <input class="rate-edit" id="bcvRate" value="771.07" inputmode="decimal">
           <span class="conv-result" id="bcvResult">Bs 0,00</span>
         </span>
       </div>
       <div class="conv-row">
         <span class="conv-label"><span class="dot binance"></span>Binance P2P</span>
         <span>
-          <input class="rate-edit" id="p2pRate" value="885,60" inputmode="decimal">
+          <input class="rate-edit" id="p2pRate" value="885.60" inputmode="decimal">
           <span class="conv-result" id="p2pResult">Bs 0,00</span>
         </span>
       </div>
@@ -408,7 +408,7 @@
 
     <button class="key mode-key" id="modeBtn">Bs<br>⇄ USD</button>
     <button class="key" data-k="0">0</button>
-    <button class="key" data-k="dot">,</button>
+    <button class="key" data-k="dot">.</button>
     <div class="key-eq-cell"><button class="key eq" data-k="eq">=</button></div>
   </div>
 
@@ -421,7 +421,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.1.0";
+  var APP_VERSION = "1.2.0";
   var versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = "v" + APP_VERSION;
 
@@ -541,8 +541,8 @@
   var updateInfo = document.getElementById('updateInfo');
   var lastFetch = null;
 
-  function setBcv(value){ bcvInput.value = value.toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function setP2p(value){ p2pInput.value = value.toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function setBcv(value){ bcvInput.value = value.toFixed(2); }
+  function setP2p(value){ p2pInput.value = value.toFixed(2); }
 
   function loadSavedRates(){
     try{

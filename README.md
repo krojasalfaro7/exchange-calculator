@@ -11,6 +11,7 @@ instalable como PWA (funciona offline una vez cargada).
 ```
 index.html      → interfaz (HTML + CSS + JS que solo dibuja y conecta eventos)
 calc.js         → motor de la calculadora, sin DOM (lo prueban los tests: `npm test`)
+rates.js        → lógica de tasas, sin DOM: publicada vs vigente, fechas, ajustes manuales
 manifest.json   → metadata de instalación (nombre, íconos, colores, display standalone)
 sw.js           → service worker: cachea el app shell (cache-first) para uso offline
 icons/          → íconos de la app en 192px y 512px (normal y maskable)
@@ -31,8 +32,14 @@ por **HTTPS**, que es justamente lo que da GitHub Pages.
 ## Notas técnicas
 
 - Sin librerías externas: prioriza rendimiento y tamaño de bundle mínimo.
-- Las tasas BCV/Binance P2P se pueden editar manualmente tocándolas; también
-  se intenta traerlas automáticamente al abrir la app (falla silenciosamente
-  si el navegador bloquea el fetch por CORS, y se puede seguir usando a mano).
-- Las tasas, la hora de la última consulta y el tema se guardan en `localStorage`
+- **BCV publicada y vigente**: el BCV publica cada tarde la tasa del próximo día
+  hábil ("Fecha valor" en bcv.org.ve). La app muestra esa tasa publicada y, mientras
+  todavía no rige, también la vigente de hoy; cuando coinciden queda una sola fila.
+  Datos de `ve.dolarapi.com` (serie histórica oficial, con fecha valor).
+- **Binance P2P**: su API no permite consultas desde el navegador (CORS), así que la
+  fila se precarga con el promedio paralelo de dolarapi como referencia y se ajusta a mano.
+- **Ajustes manuales**: tocar una tasa y escribir la fija; ningún refresco la pisa.
+  El ajuste del BCV dura hasta que el BCV publica una tasa nueva; el de P2P, hasta
+  tocar ↺.
+- Las tasas, los ajustes y el tema se guardan en `localStorage`
   (por dominio: al cambiar de URL se empieza de cero).

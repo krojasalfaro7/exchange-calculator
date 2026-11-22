@@ -180,9 +180,16 @@
     border-radius:10px;
     padding:7px 10px;
   }
-  .conv-label{display:flex; align-items:center; gap:7px; flex-shrink:0;}
+  .conv-row[hidden]{display:none;}
+  .conv-label{display:flex; align-items:center; gap:7px; min-width:0;}
+  .conv-name{display:flex; flex-direction:column; line-height:1.25; min-width:0;}
+  .conv-title{white-space:nowrap;}
+  .conv-sub{font-size:10px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .conv-sub.manual{color:var(--accent); opacity:1;}
+  .conv-right{display:flex; align-items:center; flex-shrink:0;}
   .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
   .dot.bcv{background:var(--bcv);}
+  .dot.bcv-next{background:transparent; box-shadow:inset 0 0 0 1.5px var(--bcv);}
   .dot.binance{background:var(--binance);}
   .rate-edit{
     background:none;
@@ -191,11 +198,24 @@
     color:var(--text);
     font-family:"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
     font-size:12.5px;
-    width:64px;
+    width:72px;
     text-align:right;
     padding:0 0 1px;
   }
   .rate-edit:focus{outline:none; border-bottom-color:var(--text);}
+  .rate-edit.manual{color:var(--accent); border-bottom-color:var(--accent);}
+  .rate-reset{
+    background:none;
+    border:none;
+    color:var(--accent);
+    font-size:15px;
+    line-height:1;
+    padding:2px 6px;
+    cursor:pointer;
+  }
+  .rate-reset[hidden]{display:none;}
+  .update-info.warn{color:var(--accent);}
+  .footnote a{color:inherit;}
   .conv-result{
     font-family:"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
     color:var(--text);
@@ -372,25 +392,37 @@
     <div class="expr-line" id="exprLine">&nbsp;</div>
     <div class="digits" id="digits">0</div>
 
+    <!-- Filas de tasas: BCV publicada (la de bcv.org.ve), BCV vigente (la que rige hoy; se oculta
+         cuando es la misma que la publicada) y Binance P2P. Las dibuja renderRates(). -->
     <div class="conversions">
-      <div class="conv-row">
-        <span class="conv-label"><span class="dot bcv"></span>BCV</span>
-        <span>
-          <input class="rate-edit" id="bcvRate" value="771.07" inputmode="decimal">
-          <span class="conv-result" id="bcvResult">Bs 0,00</span>
+      <div class="conv-row" id="rowPub">
+        <span class="conv-label"><span class="dot bcv-next"></span><span class="conv-name"><span class="conv-title">BCV</span><span class="conv-sub"></span></span></span>
+        <span class="conv-right">
+          <button class="rate-reset" title="Volver a la tasa oficial" hidden>↺</button>
+          <input class="rate-edit" inputmode="decimal" placeholder="—" aria-label="Tasa BCV publicada">
+          <span class="conv-result">Bs 0.00</span>
         </span>
       </div>
-      <div class="conv-row">
-        <span class="conv-label"><span class="dot binance"></span>Binance P2P</span>
-        <span>
-          <input class="rate-edit" id="p2pRate" value="885.60" inputmode="decimal">
-          <span class="conv-result" id="p2pResult">Bs 0,00</span>
+      <div class="conv-row" id="rowVig" hidden>
+        <span class="conv-label"><span class="dot bcv"></span><span class="conv-name"><span class="conv-title">BCV</span><span class="conv-sub"></span></span></span>
+        <span class="conv-right">
+          <button class="rate-reset" title="Volver a la tasa oficial" hidden>↺</button>
+          <input class="rate-edit" inputmode="decimal" placeholder="—" aria-label="Tasa BCV vigente">
+          <span class="conv-result">Bs 0.00</span>
+        </span>
+      </div>
+      <div class="conv-row" id="rowP2p">
+        <span class="conv-label"><span class="dot binance"></span><span class="conv-name"><span class="conv-title">Binance P2P</span><span class="conv-sub"></span></span></span>
+        <span class="conv-right">
+          <button class="rate-reset" title="Volver a la referencia automática" hidden>↺</button>
+          <input class="rate-edit" inputmode="decimal" placeholder="—" aria-label="Tasa Binance P2P">
+          <span class="conv-result">Bs 0.00</span>
         </span>
       </div>
     </div>
 
     <div class="update-row">
-      <span class="update-info" id="updateInfo">Toca para traer la tasa más reciente</span>
+      <span class="update-info" id="updateInfo">Toca para traer las tasas</span>
       <button class="update-btn" id="refreshBtn"><span class="spin">⟳</span> Actualizar</button>
     </div>
   </div>
@@ -425,16 +457,17 @@
     <div class="key-eq-cell"><button class="key eq" data-k="eq">=</button></div>
   </div>
 
-  <div class="footnote">Toca una tasa para editarla · valores de referencia · <span id="appVersion"></span><button id="updateBadge" class="update-badge" hidden>· Nueva versión, toca para actualizar</button></div>
+  <div class="footnote">Toca una tasa para ajustarla · verifica en <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a> · <span id="appVersion"></span><button id="updateBadge" class="update-badge" hidden>· Nueva versión, toca para actualizar</button></div>
   <div class="install-row"><button class="install-btn" id="installBtn">Instalar app</button></div>
 </div>
 
 <script src="calc.js"></script>
+<script src="rates.js"></script>
 <script>
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.3.0";
+  var APP_VERSION = "1.4.0";
   var versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = "v" + APP_VERSION;
 
@@ -512,27 +545,9 @@
     if(e.key === "Backspace"){ backspace(); return; }
   });
 
-  // ---------- Currency conversion ----------
+  // ---------- Conversión ----------
   var mode = "ves";
   var modeBtn = document.getElementById('modeBtn');
-  var bcvInput = document.getElementById('bcvRate');
-  var p2pInput = document.getElementById('p2pRate');
-  var bcvResult = document.getElementById('bcvResult');
-  var p2pResult = document.getElementById('p2pResult');
-
-  function updateConversions(){
-    var amount = engine.currentValue();
-    var bcvRate = CE.parseRate(bcvInput.value);
-    var p2pRate = CE.parseRate(p2pInput.value);
-
-    if(mode === "usd"){
-      bcvResult.textContent = CE.fmtVES(amount * bcvRate);
-      p2pResult.textContent = CE.fmtVES(amount * p2pRate);
-    } else {
-      bcvResult.textContent = bcvRate ? CE.fmtUSD(amount / bcvRate) : CE.fmtUSD(0);
-      p2pResult.textContent = p2pRate ? CE.fmtUSD(amount / p2pRate) : CE.fmtUSD(0);
-    }
-  }
 
   modeBtn.addEventListener('click', function(){
     mode = mode === "usd" ? "ves" : "usd";
@@ -540,42 +555,206 @@
     updateConversions();
   });
 
-  [bcvInput, p2pInput].forEach(function(input){
-    var storeKey = input === bcvInput ? 'bcvRate' : 'p2pRate';
-    input.addEventListener('input', function(){
-      updateConversions();
-      try{ localStorage.setItem(storeKey, input.value); }catch(e){}
+  // ---------- Tasas: estado ----------
+  // state.bcv: tasas BCV recientes [{fecha (fecha valor), value}] traídas de dolarapi.
+  // state.p2p: referencia automática para la fila P2P {value, source, at}.
+  // Los ajustes manuales viven aparte (bcvOverride / p2pOverride): ningún refresco los pisa.
+  //  - BCV: se mantiene hasta que el BCV publique una tasa con fecha valor más nueva.
+  //  - P2P: se mantiene hasta que se toque ↺.
+  var R = window.Rates;
+  var STORE_KEY = 'rates.v2';
+  var API = 'https://ve.dolarapi.com/v1/';
+  var REFRESH_MIN_MS = 60 * 1000; // al volver a la app, como mucho un refresco por minuto
+  var state = { bcv: [], p2p: null, fetchedAt: null, bcvOverride: null, p2pOverride: null, legacyBcv: null };
+
+  function saveState(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  function loadState(){
+    try{
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if(s && typeof s === 'object'){
+        state.bcv = R.normalizeEntries(s.bcv);
+        state.p2p = s.p2p && s.p2p.value > 0 ? s.p2p : null;
+        state.fetchedAt = typeof s.fetchedAt === 'number' ? s.fetchedAt : null;
+        state.bcvOverride = s.bcvOverride && s.bcvOverride.values ? s.bcvOverride : null;
+        state.p2pOverride = s.p2pOverride && s.p2pOverride.value > 0 ? s.p2pOverride : null;
+        state.legacyBcv = s.legacyBcv > 0 ? s.legacyBcv : null;
+        return;
+      }
+      // Migración desde v1.3 (claves sueltas, sin fecha valor ni distinción manual/automática).
+      var oldBcv = CE.parseRate(localStorage.getItem('bcvRate') || '');
+      var oldP2p = CE.parseRate(localStorage.getItem('p2pRate') || '');
+      var oldFetch = parseInt(localStorage.getItem('lastFetch'), 10);
+      if(oldBcv) state.legacyBcv = oldBcv;
+      if(oldP2p) state.p2p = { value: oldP2p, source: 'guardado', at: isFinite(oldFetch) ? oldFetch : null };
+      saveState();
+      ['bcvRate', 'p2pRate', 'lastFetch'].forEach(function(k){ localStorage.removeItem(k); });
+    }catch(e){}
+  }
+
+  // ---------- Tasas: filas ----------
+  function rowEls(id){
+    var el = document.getElementById(id);
+    return {
+      el: el, dot: el.querySelector('.dot'), title: el.querySelector('.conv-title'),
+      sub: el.querySelector('.conv-sub'), input: el.querySelector('.rate-edit'),
+      reset: el.querySelector('.rate-reset'), result: el.querySelector('.conv-result')
+    };
+  }
+  var ROW_KEYS = ['pub', 'vig', 'p2p'];
+  var rows = { pub: rowEls('rowPub'), vig: rowEls('rowVig'), p2p: rowEls('rowP2p') };
+  // Lo que muestra cada fila ahora mismo; lo arma computeModel() y lo usan los eventos.
+  var model = { pub: null, vig: null, p2p: null };
+  var ctx = null; // {today, pick}
+
+  function computeModel(){
+    var today = R.caracasToday(new Date());
+    var pick = R.pickBcv(state.bcv, today);
+    var pubFecha = pick.published ? pick.published.fecha : null;
+
+    var rec = R.reconcileBcvOverride(state.bcvOverride, pubFecha);
+    if(rec.dropped){
+      state.bcvOverride = null;
+      saveState();
+      showNotice('El BCV publicó una tasa nueva: se descartó tu ajuste manual');
+    }
+
+    function bcvRow(entry, sub){
+      var fecha = entry ? entry.fecha : null;
+      var official = entry ? entry.value : state.legacyBcv;
+      var manual = R.bcvOverrideFor(state.bcvOverride, fecha);
+      return {
+        kind: 'bcv', fecha: fecha, pubFecha: pubFecha, official: official || null, manual: manual,
+        rate: manual !== null ? manual : (official || 0),
+        title: entry ? 'BCV · ' + R.fmtFecha(fecha) : 'BCV',
+        sub: manual !== null ? 'manual' + (official ? ' · oficial ' + R.fmtRate(official) : '') : sub
+      };
+    }
+
+    var pubFuture = !!pick.published && pick.published.fecha > today;
+    var pubSub = !pick.published ? (state.legacyBcv ? 'guardada · sin fecha valor' : 'sin datos · toca Actualizar')
+      : pubFuture ? 'publicada · aún no rige'
+      : 'vigente';
+    model.pub = bcvRow(pick.published, pubSub);
+    model.pub.future = pubFuture;
+    model.vig = pick.same ? null : bcvRow(pick.vigente, 'vigente hoy');
+
+    var auto = state.p2p;
+    var p2pManual = state.p2pOverride ? state.p2pOverride.value : null;
+    var autoSub = !auto ? 'sin dato · tócala para escribirla'
+      : auto.source === 'paralelo' ? 'ref. dolarapi' + (auto.at ? ' · ' + relativeTime(new Date(auto.at)) : '')
+      : 'guardada';
+    model.p2p = {
+      kind: 'p2p', official: auto ? auto.value : null, manual: p2pManual,
+      rate: p2pManual !== null ? p2pManual : (auto ? auto.value : 0),
+      title: 'Binance P2P',
+      sub: p2pManual !== null ? 'manual · ' + relativeTime(new Date(state.p2pOverride.at)) : autoSub
+    };
+
+    ctx = { today: today, pick: pick };
+  }
+
+  function renderRow(r, m){
+    r.el.hidden = !m;
+    if(!m) return;
+    var isManual = m.manual !== null;
+    r.title.textContent = m.title;
+    r.sub.textContent = m.sub;
+    r.sub.classList.toggle('manual', isManual);
+    r.input.classList.toggle('manual', isManual);
+    r.reset.hidden = !isManual;
+    // Nunca reescribir el campo mientras la persona lo está editando.
+    if(document.activeElement !== r.input) r.input.value = R.fmtRate(m.rate);
+  }
+
+  function renderRates(){
+    computeModel();
+    ROW_KEYS.forEach(function(k){ renderRow(rows[k], model[k]); });
+    // Punto hueco = publicada que todavía no rige; lleno = la que rige hoy.
+    rows.pub.dot.className = 'dot ' + (model.pub.future ? 'bcv-next' : 'bcv');
+    updateConversions();
+    renderInfo();
+  }
+
+  function updateConversions(){
+    var amount = engine.currentValue();
+    ROW_KEYS.forEach(function(k){
+      var m = model[k];
+      if(!m) return;
+      rows[k].result.textContent = mode === "usd"
+        ? CE.fmtVES(amount * m.rate)
+        : CE.fmtUSD(m.rate ? amount / m.rate : 0);
     });
-    input.addEventListener('focus', function(){ input.select(); });
+  }
+
+  // ---------- Tasas: ajustes manuales ----------
+  function setManual(m, value){
+    if(m.official && value === m.official){ clearManual(m); return; }
+    if(m.kind === 'p2p') state.p2pOverride = { value: value, at: Date.now() };
+    else state.bcvOverride = R.setBcvOverride(state.bcvOverride, m.pubFecha, m.fecha, value);
+    saveState();
+  }
+
+  function clearManual(m){
+    if(m.kind === 'p2p') state.p2pOverride = null;
+    else state.bcvOverride = R.clearBcvOverride(state.bcvOverride, m.fecha);
+    saveState();
+  }
+
+  ROW_KEYS.forEach(function(k){
+    var r = rows[k];
+    r.input.addEventListener('focus', function(){ r.input.select(); });
+    r.input.addEventListener('input', function(){
+      var m = model[k];
+      if(!m) return;
+      var v = CE.parseRate(r.input.value);
+      if(v > 0) setManual(m, v);
+      else clearManual(m); // campo vacío = volver a la tasa oficial
+      renderRates();
+    });
+    r.input.addEventListener('blur', renderRates);
+    r.reset.addEventListener('click', function(){
+      if(model[k]) clearManual(model[k]);
+      renderRates();
+    });
   });
 
-  // ---------- Live rate fetch ----------
-  var refreshBtn = document.getElementById('refreshBtn');
+  // ---------- Tasas: línea de estado ----------
   var updateInfo = document.getElementById('updateInfo');
-  var lastFetch = null;
+  var refreshBtn = document.getElementById('refreshBtn');
+  var fetching = false, fetchError = null, lastAttempt = 0;
+  var notice = null, noticeUntil = 0;
 
-  function setBcv(value){ bcvInput.value = value.toFixed(2); }
-  function setP2p(value){ p2pInput.value = value.toFixed(2); }
+  function showNotice(text){ notice = text; noticeUntil = Date.now() + 60000; }
 
-  function loadSavedRates(){
-    try{
-      var savedBcv = localStorage.getItem('bcvRate');
-      var savedP2p = localStorage.getItem('p2pRate');
-      var savedFetch = localStorage.getItem('lastFetch');
-      if(savedBcv) bcvInput.value = savedBcv;
-      if(savedP2p) p2pInput.value = savedP2p;
-      if(savedFetch){ lastFetch = new Date(parseInt(savedFetch, 10)); }
-    }catch(e){}
+  function relativeTime(date){
+    var sec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if(sec < 45) return "hace un momento";
+    var min = Math.floor(sec / 60);
+    if(min < 60) return "hace " + Math.max(min, 1) + " min";
+    var hr = Math.floor(min / 60);
+    if(hr < 24) return "hace " + hr + (hr === 1 ? " hora" : " horas");
+    var d = Math.floor(hr / 24);
+    return "hace " + d + (d === 1 ? " día" : " días");
   }
 
-  function saveRates(){
-    try{
-      localStorage.setItem('bcvRate', bcvInput.value);
-      localStorage.setItem('p2pRate', p2pInput.value);
-      if(lastFetch) localStorage.setItem('lastFetch', String(lastFetch.getTime()));
-    }catch(e){}
+  function renderInfo(){
+    var text, warn = false;
+    var pub = ctx && ctx.pick.published;
+    if(fetching) text = "Actualizando…";
+    else if(notice && Date.now() < noticeUntil){ text = notice; warn = true; }
+    else if(fetchError === 'offline') text = "Sin conexión · usando tasas guardadas";
+    else if(fetchError){ text = "No se pudo actualizar · usando tasas guardadas"; warn = true; }
+    else if(pub && R.isStale(pub, ctx.today)){ text = "Última tasa BCV: " + R.fmtFecha(pub.fecha) + " · revisa bcv.org.ve"; warn = true; }
+    else if(state.fetchedAt) text = "Actualizado " + relativeTime(new Date(state.fetchedAt));
+    else text = "Toca para traer las tasas";
+    updateInfo.textContent = text;
+    updateInfo.classList.toggle('warn', warn);
   }
 
+  // ---------- Tasas: descarga ----------
   function fetchWithTimeout(url, opts, ms){
     var controller = new AbortController();
     var timer = setTimeout(function(){ controller.abort(); }, ms);
@@ -583,73 +762,72 @@
     return fetch(url, opts).finally(function(){ clearTimeout(timer); });
   }
 
-  function relativeTime(date){
-    var sec = Math.floor((Date.now() - date.getTime()) / 1000);
-    if(sec < 45) return "hace un momento";
-    var min = Math.floor(sec / 60);
-    if(min < 60) return "hace " + min + (min === 1 ? " min" : " min");
-    var hr = Math.floor(min / 60);
-    return "hace " + hr + (hr === 1 ? " hora" : " horas");
+  function getJSON(url){
+    return fetchWithTimeout(url, { cache: 'no-store' }, 8000).then(function(r){
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
   }
 
-  function tickUpdateInfo(){
-    if(lastFetch) updateInfo.textContent = "Actualizado " + relativeTime(lastFetch);
-  }
-  setInterval(tickUpdateInfo, 30000);
-
+  // historicos trae la serie BCV con su fecha valor, incluida la ya publicada para el próximo
+  // día hábil (/dolares/oficial solo devuelve la vigente). /dolares trae además el paralelo.
+  // Binance P2P no se consulta directo: su API no permite CORS desde el navegador.
   async function fetchRates(){
-    if(!navigator.onLine){
-      updateInfo.textContent = "Sin conexión · valores manuales";
-      return false;
-    }
+    if(fetching) return;
+    lastAttempt = Date.now();
+    if(!navigator.onLine){ fetchError = 'offline'; renderInfo(); return; }
+    fetching = true;
+    fetchError = null;
     refreshBtn.classList.add('loading');
-    updateInfo.textContent = "Actualizando…";
-    var okAny = false;
+    renderInfo();
 
-    try{
-      var r = await fetchWithTimeout('https://ve.dolarapi.com/v1/dolares/oficial', undefined, 6000);
-      if(r.ok){
-        var d = await r.json();
-        if(d && d.promedio){ setBcv(d.promedio); okAny = true; }
-      }
-    }catch(e){ /* sin conexión al endpoint BCV, se mantiene edición manual */ }
+    var res = await Promise.allSettled([
+      getJSON(API + 'historicos/dolares/oficial'),
+      getJSON(API + 'dolares')
+    ]);
+    var hist = res[0].status === 'fulfilled' ? R.parseHistoricos(res[0].value) : [];
+    var dol = res[1].status === 'fulfilled' ? R.parseDolares(res[1].value) : { oficial: null, paralelo: null };
 
-    try{
-      var r2 = await fetchWithTimeout('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({page:1, rows:5, asset:'USDT', tradeType:'SELL', fiat:'VES', payTypes:[], publisherType:null})
-      }, 6000);
-      if(r2.ok){
-        var d2 = await r2.json();
-        var list = d2 && d2.data;
-        if(list && list.length){
-          var prices = list.map(function(x){ return parseFloat(x.adv.price); }).filter(function(n){ return isFinite(n); });
-          if(prices.length){
-            prices.sort(function(a,b){ return a-b; });
-            var median = prices[Math.floor(prices.length/2)];
-            setP2p(median); okAny = true;
-          }
-        }
-      }
-    }catch(e){ /* Binance bloquea CORS desde el navegador en muchos entornos; se mantiene edición manual */ }
+    var ok = false;
+    if(hist.length){
+      state.bcv = R.normalizeEntries(hist.concat(dol.oficial ? [dol.oficial] : []));
+      ok = true;
+    } else if(dol.oficial){
+      state.bcv = R.normalizeEntries(state.bcv.concat([dol.oficial]));
+      ok = true;
+    }
+    if(dol.paralelo){
+      state.p2p = { value: dol.paralelo.value, source: 'paralelo', at: dol.paralelo.at || Date.now() };
+      ok = true;
+    }
+    if(ok){
+      state.fetchedAt = Date.now();
+      if(state.bcv.length) state.legacyBcv = null;
+      saveState();
+    } else {
+      fetchError = 'fail';
+    }
 
+    fetching = false;
     refreshBtn.classList.remove('loading');
-    if(okAny){ lastFetch = new Date(); tickUpdateInfo(); saveRates(); }
-    else { updateInfo.textContent = "No se pudo actualizar · edita a mano"; }
-    updateConversions();
-    return okAny;
+    renderRates();
   }
 
   refreshBtn.addEventListener('click', fetchRates);
-  window.addEventListener('load', function(){ fetchRates(); });
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible') fetchRates();
+    if(document.visibilityState !== 'visible') return;
+    renderRates(); // si cambió el día, la publicada pasa a vigente aun sin red
+    if(Date.now() - lastAttempt > REFRESH_MIN_MS) fetchRates();
   });
+  window.addEventListener('online', fetchRates);
+  setInterval(function(){
+    if(document.visibilityState === 'visible') renderRates();
+  }, 30000);
 
-  loadSavedRates();
-  tickUpdateInfo();
+  loadState();
+  renderRates();
   render();
+  fetchRates();
 
   // ---------- Theme toggle ----------
   var themeToggle = document.getElementById('themeToggle');

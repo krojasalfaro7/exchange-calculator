@@ -9,22 +9,21 @@ instalable como PWA (funciona offline una vez cargada).
 ## Estructura
 
 ```
-index.html      → app completa (HTML + CSS + JS, sin dependencias externas)
+index.html      → interfaz (HTML + CSS + JS que solo dibuja y conecta eventos)
+calc.js         → motor de la calculadora, sin DOM (lo prueban los tests: `npm test`)
 manifest.json   → metadata de instalación (nombre, íconos, colores, display standalone)
 sw.js           → service worker: cachea el app shell (cache-first) para uso offline
 icons/          → íconos de la app en 192px y 512px (normal y maskable)
 ```
 
-## Publicar en GitHub Pages
+## Publicación
 
-Este repo incluye un workflow (`.github/workflows/deploy-pages.yml`) que publica
-automáticamente el contenido de la rama principal en GitHub Pages con cada push.
+En vivo en **https://calc.ubbedigital.com** (GitHub Pages con dominio propio).
 
-Para activarlo (una sola vez):
-
-1. Ve a **Settings → Pages** en este repositorio.
-2. En **Source**, selecciona **GitHub Actions**.
-3. Haz push a `main` (o `develop`) — el workflow se encarga del resto.
+El workflow `.github/workflows/deploy-pages.yml` publica el contenido del repo en
+GitHub Pages con cada push a `develop` (Settings → Pages → Source: **GitHub Actions**;
+el dominio se configura ahí mismo, no hace falta archivo `CNAME`). El DNS es un
+registro `CNAME calc → krojasalfaro7.github.io` en ubbedigital.com.
 
 La PWA solo es instalable (service worker + "Agregar a inicio") cuando se sirve
 por **HTTPS**, que es justamente lo que da GitHub Pages.
@@ -35,4 +34,5 @@ por **HTTPS**, que es justamente lo que da GitHub Pages.
 - Las tasas BCV/Binance P2P se pueden editar manualmente tocándolas; también
   se intenta traerlas automáticamente al abrir la app (falla silenciosamente
   si el navegador bloquea el fetch por CORS, y se puede seguir usando a mano).
-- No usa `localStorage` — las tasas no persisten entre sesiones por ahora.
+- Las tasas, la hora de la última consulta y el tema se guardan en `localStorage`
+  (por dominio: al cambiar de URL se empieza de cero).

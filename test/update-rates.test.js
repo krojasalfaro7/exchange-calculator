@@ -28,6 +28,24 @@ test("validateBcv rejects implausible readings", () => {
   assert.match(U.validateBcv(null, history, "2026-11-22"), /no se encontró/);
 });
 
+test("missedBusinessDays counts weekdays without a stored rate", () => {
+  const h = [{ fecha: "2026-11-24", value: 919.8227 }]; // martes
+  assert.equal(U.missedBusinessDays(h, "2026-11-22"), 0); // domingo: ya está la del martes
+  assert.equal(U.missedBusinessDays(h, "2026-11-24"), 0);
+  assert.equal(U.missedBusinessDays(h, "2026-11-25"), 1); // miércoles sin la del miércoles
+  assert.equal(U.missedBusinessDays(h, "2026-11-30"), 4); // lunes: mié, jue, vie, lun
+  assert.equal(U.missedBusinessDays([{ fecha: "2026-11-20" }], "2026-11-22"), 0); // viernes -> domingo
+  assert.equal(U.missedBusinessDays([], "2026-11-22"), Infinity);
+});
+
+test("bcvAlert only fires when the read failed and the rate is 2+ business days behind", () => {
+  const h = [{ fecha: "2026-11-24", value: 919.8227 }];
+  assert.equal(U.bcvAlert(null, h, "2026-11-30"), null);          // se leyó bien: el BCV no ha publicado
+  assert.equal(U.bcvAlert("HTTP 500", h, "2026-11-25"), null);    // fallo pasajero, 1 día
+  assert.match(U.bcvAlert("HTTP 500", h, "2026-11-26"), /HTTP 500.*2026-11-24.*2 días hábiles/);
+  assert.match(U.bcvAlert("HTTP 500", [], "2026-11-26"), /sin historial/);
+});
+
 test("mergeHistory only reports a change for a new fecha or a corrected value", () => {
   const history = [{ fecha: "2026-11-20", value: 918.7662 }];
   const a = U.mergeHistory(history, { fecha: "2026-11-24", value: 919.8227 });

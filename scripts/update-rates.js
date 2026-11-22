@@ -56,6 +56,31 @@ function validateBcv(entry, history, today) {
   return null;
 }
 
+// Días hábiles (lun-vie) después de la última fecha valor guardada, hasta hoy inclusive.
+// Normal = 0: el BCV publica la del próximo día hábil antes de que llegue. Los feriados que el BCV
+// salta no cuentan porque ya publicó una fecha valor posterior a ellos.
+function missedBusinessDays(history, today) {
+  const newest = history.length ? history[history.length - 1].fecha : null;
+  if (!newest) return Infinity;
+  let n = 0;
+  for (let d = R.addDays(newest, 1); d <= today; d = R.addDays(d, 1)) {
+    const wd = new Date(d + "T12:00:00Z").getUTCDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return n;
+}
+
+const ALERT_MISSED_DAYS = 2;
+// Motivo para avisar (abrir un issue) o null: solo si esta corrida no pudo leer bcv.org.ve
+// y ya faltan 2+ días hábiles de tasa. Un fallo pasajero con la tasa al día no avisa.
+function bcvAlert(failure, history, today) {
+  if (!failure) return null;
+  const missed = missedBusinessDays(history, today);
+  if (missed < ALERT_MISSED_DAYS) return null;
+  const newest = history.length ? history[history.length - 1].fecha : "ninguna";
+  return `${failure}. Última fecha valor leída: ${newest} (${missed === Infinity ? "sin historial" : missed + " días hábiles sin tasa"}).`;
+}
+
 // Agrega/actualiza la entrada; changed = hay algo nuevo que commitear.
 function mergeHistory(history, entry) {
   const old = history.find((e) => e.fecha === entry.fecha);
@@ -135,13 +160,15 @@ async function main() {
   let history = R.normalizeEntries(stored.entries || []);
   let bcvOk = false;
   let changed = false;
+  let failure = null;
 
   try {
     const html = await withRetries(() => httpsGet(BCV_URL, { ca: BCV_CA }));
     const entry = parseBcvHtml(html);
     const problem = validateBcv(entry, history, today);
     if (problem) {
-      warn(`BCV: lectura descartada (${problem})`);
+      failure = `lectura descartada: ${problem}`;
+      warn(`BCV: ${failure}`);
     } else {
       bcvOk = true;
       ({ history, changed } = mergeHistory(history, entry));
@@ -149,8 +176,13 @@ async function main() {
       if (changed) setOutput("bcv_summary", `${entry.value} fecha valor ${entry.fecha}`);
     }
   } catch (e) {
-    warn(`BCV: no se pudo leer ${BCV_URL} (${e.message})`);
+    failure = `no se pudo leer ${BCV_URL}: ${e.message}`;
+    warn(`BCV: ${failure}`);
   }
+  const alert = bcvAlert(failure, history, today);
+  if (alert) console.log(`::error::BCV: ${alert}`);
+  setOutput("bcv_ok", bcvOk ? "true" : "false");
+  setOutput("bcv_alert", alert || "");
 
   if (changed) {
     fs.mkdirSync(path.dirname(HISTORY_FILE), { recursive: true });
@@ -180,4 +212,4 @@ if (require.main === module) {
   main().catch((e) => { warn(`update-rates falló: ${e.stack || e}`); process.exitCode = 0; });
 }
 
-module.exports = { parseVeNumber, parseBcvHtml, validateBcv, mergeHistory, p2pFromBinance };
+module.exports = { parseVeNumber, parseBcvHtml, validateBcv, missedBusinessDays, bcvAlert, mergeHistory, p2pFromBinance };

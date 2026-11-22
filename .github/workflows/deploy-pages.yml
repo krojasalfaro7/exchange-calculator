@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write   # commitear data/bcv.json
+  issues: write     # avisar si bcv.org.ve deja de leerse
   pages: write
   id-token: write
 
@@ -74,3 +75,23 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      # Si bcv.org.ve no se puede leer y ya faltan 2+ días hábiles de tasa (p. ej. rediseñaron la
+      # página), abre un issue (uno solo) para que llegue el aviso; lo cierra cuando se vuelve a leer.
+      - name: Avisar si no se puede leer el BCV
+        if: ${{ !cancelled() && steps.rates.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ALERT: ${{ steps.rates.outputs.bcv_alert }}
+          BCV_OK: ${{ steps.rates.outputs.bcv_ok }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="No se puede leer la tasa del BCV"
+          NUM=$(gh issue list --state open --limit 50 --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ -n "$ALERT" ] && [ -z "$NUM" ]; then
+            gh issue create --title "$TITLE" --body "$(printf '%s\n\nLa app sigue funcionando con la serie de ve.dolarapi.com, pero sin la lectura directa de bcv.org.ve. Si el BCV cambió su página, actualiza `parseBcvHtml` y el fixture en `test/fixtures/`.\n\nCorrida: %s\n\nSe cierra solo cuando se vuelva a leer la tasa.\n\ncc @krojasalfaro7' "$ALERT" "$RUN_URL")"
+          elif [ "$BCV_OK" = "true" ] && [ -n "$NUM" ]; then
+            gh issue close "$NUM" --comment "La tasa del BCV se volvió a leer ($RUN_URL)."
+          fi

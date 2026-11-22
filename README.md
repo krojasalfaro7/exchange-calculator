@@ -39,6 +39,9 @@ por **HTTPS**, que es justamente lo que da GitHub Pages.
   todavía no rige, también la vigente de hoy; cuando coinciden queda una sola fila.
   La tasa se lee directamente de bcv.org.ve con una GitHub Action (cada 30 min las tardes
   de días hábiles) y `ve.dolarapi.com` queda de respaldo.
+  Si bcv.org.ve no se puede leer y ya faltan 2 días hábiles de tasa, la Action abre el
+  issue "No se puede leer la tasa del BCV" (llega el aviso de GitHub) y lo cierra sola
+  cuando vuelve a leerla.
 - **Binance P2P**: su API no permite consultas desde el navegador (CORS); la misma Action
   la consulta desde el servidor (promedio de las medianas de compra y venta). Si tiene más
   de 3 h, se usa el paralelo de dolarapi como referencia.

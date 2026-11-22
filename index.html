@@ -468,7 +468,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.6.0";
+  var APP_VERSION = "1.6.1";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -910,7 +910,8 @@
     try{
       var r = await fetchWithTimeout('./index.html?fresh=' + Date.now(), { cache: 'no-store' }, 8000);
       if(!r.ok) throw new Error("HTTP " + r.status);
-      var m = /APP_VERSION = "([^"]+)"/.exec(await r.text());
+      // Solo dígitos y puntos: así esta misma línea nunca coincide consigo misma.
+      var m = /APP_VERSION = "(\d+(?:\.\d+)+)"/.exec(await r.text());
       if(!m) throw new Error("sin APP_VERSION");
       latestVersion = m[1];
       versionError = false;

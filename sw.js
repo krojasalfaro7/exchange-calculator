@@ -1,7 +1,7 @@
 // Service worker lite: cachea el app shell para que abra al instante y funcione sin conexión.
 // Las tasas en vivo siguen intentando red-primero; todo lo demás es cache-first.
 
-const CACHE = "calc-bs-v11";
+const CACHE = "calc-bs-v12";
 const SHELL = [
   "./",
   "./index.html",
@@ -16,7 +16,10 @@ const SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    // cache: "reload" para no guardar copias viejas del cache HTTP del navegador.
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -34,7 +37,8 @@ self.addEventListener("fetch", (event) => {
 
   // Tasas (dolarapi y nuestro rates.json): siempre a la red, nunca del cache del SW.
   // Sin red, la app usa las tasas que guardó en localStorage.
-  if (url.hostname !== self.location.hostname || url.pathname.endsWith("/rates.json")) {
+  // ?fresh= lo usa la app para leer la versión publicada sin pasar por este cache.
+  if (url.hostname !== self.location.hostname || url.pathname.endsWith("/rates.json") || url.searchParams.has("fresh")) {
     return;
   }
 

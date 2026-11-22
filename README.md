@@ -45,5 +45,8 @@ por **HTTPS**, que es justamente lo que da GitHub Pages.
 - **Ajustes manuales**: tocar una tasa y escribir la fija; ningún refresco la pisa.
   El ajuste del BCV dura hasta que el BCV publica una tasa nueva; el de P2P, hasta
   tocar ↺.
+- **Actualizar la app**: el botón con la versión (abajo a la derecha) abre un modal que
+  compara la versión instalada con la publicada y fuerza la descarga de la última
+  (también sirve para reparar una instalación trabada). Ahí está "Instalar".
 - Las tasas, los ajustes y el tema se guardan en `localStorage`
   (por dominio: al cambiar de URL se empieza de cero).

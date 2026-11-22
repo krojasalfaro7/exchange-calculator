@@ -33,9 +33,6 @@
     --history:#5a5c60;
     --bcv:#5b8fb0;
     --binance:#f0b90b;
-    --amarillo:#f7c948;
-    --azul:#2b4c8c;
-    --rojo:#c1272d;
     --border:rgba(255,255,255,.08);
     --hairline:rgba(255,255,255,.25);
     --row-bg:rgba(255,255,255,.03);
@@ -84,36 +81,7 @@
     box-shadow:0 20px 50px var(--shadow);
     border:1px solid var(--border);
   }
-  .tricolor{height:3px;display:flex;}
-  .tricolor span{flex:1;}
-  .tricolor .a{background:var(--amarillo);}
-  .tricolor .b{background:var(--azul);}
-  .tricolor .c{background:var(--rojo);}
-
-  .display{padding:16px 20px 14px;}
-  .top-row{display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:6px;}
-  .status-dot{width:7px;height:7px;border-radius:50%;background:#3ac16a;flex-shrink:0;}
-  .status-dot.offline{background:#8a8d93;}
-  .theme-toggle{
-    background:none;
-    border:none;
-    color:var(--muted);
-    font-size:15px;
-    cursor:pointer;
-    padding:4px 6px;
-    line-height:1;
-    margin-right:auto;
-  }
-  .refresh-btn{
-    background:none;
-    border:none;
-    color:var(--muted);
-    font-size:16px;
-    cursor:pointer;
-    padding:4px 6px;
-    line-height:1;
-  }
-  .refresh-btn.loading{animation:spin 0.9s linear infinite;}
+  .display{padding:12px 20px 12px;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
   .history{
@@ -215,7 +183,6 @@
   }
   .rate-reset[hidden]{display:none;}
   .update-info.warn{color:var(--accent);}
-  .footnote a{color:inherit;}
   .conv-result{
     font-family:"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
     color:var(--text);
@@ -291,44 +258,66 @@
     padding:0;
   }
 
-  .footnote{
-    text-align:center;
+  /* Barra inferior: tema + ayuda + versión/actualizar, todo en una línea */
+  .bottom-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
     color:var(--muted);
     font-size:10.5px;
-    padding:8px 12px 4px;
-    line-height:1.4;
   }
-  .update-badge{
+  .bottom-bar a{color:inherit;}
+  .bar-text{flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .icon-btn, .app-btn{
     background:none;
     border:none;
-    color:var(--accent);
-    font-size:10.5px;
-    font-weight:700;
+    color:var(--muted);
     cursor:pointer;
-    padding:0;
-    margin-left:2px;
-    text-decoration:underline;
     font-family:inherit;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:6px;
+    border-radius:8px;
+    flex-shrink:0;
   }
-  .update-badge[hidden]{display:none;}
+  .icon-btn svg, .app-btn svg{display:block;}
+  .app-btn{font-size:10.5px;}
+  .app-btn.has-update{color:var(--accent); font-weight:700;}
 
-  .install-row{
-    padding:0 12px;
-  }
-  .install-btn{
-    display:none;
-    width:100%;
+  /* Modal de actualizar la app */
+  dialog.sheet{
+    border:none;
+    border-radius:18px;
+    padding:0;
+    width:min(320px, calc(100vw - 32px));
     background:var(--key);
     color:var(--text);
+    box-shadow:0 20px 50px var(--shadow);
+  }
+  dialog.sheet::backdrop{background:rgba(0,0,0,.55);}
+  .sheet-body{display:flex; flex-direction:column; gap:10px; padding:20px;}
+  .sheet-body h2{margin:0 0 4px; font-size:17px;}
+  .sheet-row{display:flex; justify-content:space-between; margin:0; font-size:13px; color:var(--muted);}
+  .sheet-row strong{color:var(--text); font-family:"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;}
+  .sheet-status{margin:2px 0 4px; font-size:12.5px; line-height:1.4; color:var(--muted);}
+  .sheet-status.ok{color:#3ac16a;}
+  .sheet-status.new{color:var(--accent); font-weight:600;}
+  .sheet-btn{
     border:none;
     border-radius:12px;
-    padding:11px 0;
-    font-size:13px;
+    padding:12px 0;
+    font-size:14px;
     font-weight:600;
     cursor:pointer;
-    margin-bottom:14px;
+    font-family:inherit;
+    background:var(--row-bg);
+    color:var(--text);
   }
-  .install-btn.show{display:block;}
+  .sheet-btn.primary{background:var(--accent); color:#1a0e00;}
+  .sheet-btn:disabled{opacity:.6; cursor:default;}
+  .sheet-btn[hidden]{display:none;}
 
   @media (max-width:480px){
     body{
@@ -336,11 +325,11 @@
       padding-top:env(safe-area-inset-top);
       padding-bottom:env(safe-area-inset-bottom);
       align-items:stretch;
+      height:100dvh;
     }
     .app{
       max-width:none;
       width:100%;
-      height:100dvh;
       border-radius:0;
       box-shadow:none;
       border:none;
@@ -363,7 +352,6 @@
       height:60px;
       font-size:24px;
     }
-    .footnote{padding-bottom:max(8px, env(safe-area-inset-bottom));}
   }
 </style>
 <script>
@@ -380,14 +368,7 @@
 <body>
 
 <div class="app">
-  <div class="tricolor"><span class="a"></span><span class="b"></span><span class="c"></span></div>
-
   <div class="display">
-    <div class="top-row">
-      <button class="theme-toggle" id="themeToggle" title="Cambiar tema">🌙</button>
-      <span class="status-dot" id="statusDot" title="Conexión"></span>
-    </div>
-
     <div class="history" id="historyBox"></div>
     <div class="expr-line" id="exprLine">&nbsp;</div>
     <div class="digits" id="digits">0</div>
@@ -457,9 +438,29 @@
     <div class="key-eq-cell"><button class="key eq" data-k="eq">=</button></div>
   </div>
 
-  <div class="footnote">Toca una tasa para ajustarla · verifica en <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a> · <span id="appVersion"></span><button id="updateBadge" class="update-badge" hidden>· Nueva versión, toca para actualizar</button></div>
-  <div class="install-row"><button class="install-btn" id="installBtn">Instalar app</button></div>
+  <div class="bottom-bar">
+    <button class="icon-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/></svg>
+    </button>
+    <span class="bar-text">Toca una tasa para ajustarla · <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a></span>
+    <button class="app-btn" id="appBtn" title="Actualizar la app" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="appBtnLabel"></span>
+    </button>
+  </div>
 </div>
+
+<dialog class="sheet" id="appDialog" aria-labelledby="appDialogTitle">
+  <form method="dialog" class="sheet-body">
+    <h2 id="appDialogTitle">Actualizar la app</h2>
+    <p class="sheet-row"><span>Instalada</span><strong id="dlgCurrent"></strong></p>
+    <p class="sheet-row"><span>Publicada</span><strong id="dlgLatest">—</strong></p>
+    <p class="sheet-status" id="dlgStatus"></p>
+    <button type="button" class="sheet-btn primary" id="dlgUpdate">Actualizar ahora</button>
+    <button type="button" class="sheet-btn" id="installBtn" hidden>Instalar en este dispositivo</button>
+    <button type="submit" class="sheet-btn" value="close">Cerrar</button>
+  </form>
+</dialog>
 
 <script src="calc.js"></script>
 <script src="rates.js"></script>
@@ -467,9 +468,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.5.0";
-  var versionEl = document.getElementById('appVersion');
-  if(versionEl) versionEl.textContent = "v" + APP_VERSION;
+  var APP_VERSION = "1.6.0";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -532,6 +531,8 @@
   });
 
   document.addEventListener('keydown', function(e){
+    // El teclado físico es para la calculadora, no cuando se escribe una tasa o está abierto el modal.
+    if(e.target.closest && e.target.closest('input, dialog')) return;
     if(/^[0-9]$/.test(e.key)){ pressDigit(e.key); return; }
     if(e.key === "."){ pressDigit("."); return; }
     if(e.key === "+"){ pressOperator("+"); return; }
@@ -746,7 +747,7 @@
     var pub = ctx && ctx.pick.published;
     if(fetching) text = "Actualizando…";
     else if(notice && Date.now() < noticeUntil){ text = notice; warn = true; }
-    else if(fetchError === 'offline') text = "Sin conexión · usando tasas guardadas";
+    else if(fetchError === 'offline' || !navigator.onLine) text = "Sin conexión · usando tasas guardadas";
     else if(fetchError){ text = "No se pudo actualizar · usando tasas guardadas"; warn = true; }
     else if(pub && R.isStale(pub, ctx.today)){ text = "Última tasa BCV: " + R.fmtFecha(pub.fecha) + " · revisa bcv.org.ve"; warn = true; }
     else if(state.fetchedAt) text = "Actualizado " + relativeTime(new Date(state.fetchedAt));
@@ -827,6 +828,7 @@
     if(Date.now() - lastAttempt > REFRESH_MIN_MS) fetchRates();
   });
   window.addEventListener('online', fetchRates);
+  window.addEventListener('offline', renderInfo);
   setInterval(function(){
     if(document.visibilityState === 'visible') renderRates();
   }, 30000);
@@ -836,7 +838,7 @@
   render();
   fetchRates();
 
-  // ---------- Theme toggle ----------
+  // ---------- Tema ----------
   var themeToggle = document.getElementById('themeToggle');
   var themeColorMeta = document.querySelector('meta[name="theme-color"]');
   var THEME_COLORS = { dark: "#0b0c0e", light: "#f2f2f0" };
@@ -844,8 +846,8 @@
   function applyThemeUI(){
     var theme = document.documentElement.getAttribute('data-theme') || 'dark';
     themeColorMeta.setAttribute('content', THEME_COLORS[theme]);
-    themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
     themeToggle.title = theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+    themeToggle.setAttribute('aria-label', themeToggle.title);
   }
   applyThemeUI();
 
@@ -857,63 +859,144 @@
     applyThemeUI();
   });
 
-  // ---------- PWA: online/offline status ----------
-  var statusDot = document.getElementById('statusDot');
-  function updateStatus(){
-    statusDot.classList.toggle('offline', !navigator.onLine);
-    statusDot.title = navigator.onLine ? 'En línea' : 'Sin conexión (modo offline)';
-  }
-  window.addEventListener('online', updateStatus);
-  window.addEventListener('offline', updateStatus);
-  updateStatus();
+  // ---------- Actualizar la app (PWA) ----------
+  // Dos señales de versión nueva:
+  //  1. La versión publicada: se lee APP_VERSION del index.html del servidor (?fresh= hace que el
+  //     SW no lo sirva de su cache) al abrir el modal, al volver a la app (cada 10 min como mucho)
+  //     y cada 30 min con la app abierta.
+  //  2. "controllerchange": sw.js hace skipWaiting()/clients.claim(), así que un cambio de
+  //     controlador que no sea el primero significa que un SW nuevo ya tomó el control.
+  // "Actualizar ahora" fuerza todo: SW nuevo, borra los caches, vuelve a bajar el app shell
+  // saltándose el cache HTTP y recarga. También sirve para "reparar" una instalación trabada.
+  var appBtn = document.getElementById('appBtn');
+  var appBtnLabel = document.getElementById('appBtnLabel');
+  var appDialog = document.getElementById('appDialog');
+  var dlgCurrent = document.getElementById('dlgCurrent');
+  var dlgLatest = document.getElementById('dlgLatest');
+  var dlgStatus = document.getElementById('dlgStatus');
+  var dlgUpdate = document.getElementById('dlgUpdate');
+  var SHELL_FILES = ['./', './index.html', './calc.js', './rates.js', './manifest.json'];
+  var VERSION_CHECK_MS = 10 * 60 * 1000;
+  var swRegistration = null;
+  var latestVersion = null, versionCheckedAt = 0, versionError = false, newWorkerActive = false;
 
-  // ---------- PWA: service worker registration + update banner ----------
-  var updateBadge = document.getElementById('updateBadge');
+  function updateAvailable(){
+    return newWorkerActive || (latestVersion !== null && latestVersion !== APP_VERSION);
+  }
+
+  function renderAppUI(){
+    var hasUpdate = updateAvailable();
+    appBtn.classList.toggle('has-update', hasUpdate);
+    appBtnLabel.textContent = hasUpdate ? "Actualizar" : "v" + APP_VERSION;
+    appBtn.title = hasUpdate ? "Hay una versión nueva: toca para actualizar" : "Actualizar la app";
+
+    dlgCurrent.textContent = "v" + APP_VERSION;
+    dlgLatest.textContent = latestVersion ? "v" + latestVersion : (versionError ? "no disponible" : "buscando…");
+    var cls = '', text;
+    if(!navigator.onLine){ text = "Sin conexión: conéctate para buscar y bajar la última versión."; }
+    else if(hasUpdate){ cls = 'new'; text = "Hay una versión nueva. Toca «Actualizar ahora» para cargarla."; }
+    else if(latestVersion){ cls = 'ok'; text = "Ya tienes la última versión. Si algo se ve raro, «Actualizar ahora» vuelve a bajar todo desde el servidor."; }
+    else if(versionError){ text = "No se pudo consultar la versión publicada. Igual puedes forzar la actualización."; }
+    else { text = "Buscando la versión publicada…"; }
+    dlgStatus.textContent = text;
+    dlgStatus.className = 'sheet-status' + (cls ? ' ' + cls : '');
+    dlgUpdate.disabled = !navigator.onLine;
+  }
+
+  async function checkLatestVersion(force){
+    if(!navigator.onLine) { renderAppUI(); return; }
+    if(!force && Date.now() - versionCheckedAt < VERSION_CHECK_MS) return;
+    versionCheckedAt = Date.now();
+    try{
+      var r = await fetchWithTimeout('./index.html?fresh=' + Date.now(), { cache: 'no-store' }, 8000);
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      var m = /APP_VERSION = "([^"]+)"/.exec(await r.text());
+      if(!m) throw new Error("sin APP_VERSION");
+      latestVersion = m[1];
+      versionError = false;
+    }catch(e){
+      versionError = true;
+    }
+    if(swRegistration) swRegistration.update().catch(function(){});
+    renderAppUI();
+  }
+
+  // Espera (máx. ms) a que un SW que se está instalando quede activo.
+  function waitForWorker(reg, ms){
+    var w = reg && (reg.installing || reg.waiting);
+    if(!w) return Promise.resolve();
+    return new Promise(function(resolve){
+      var done = function(){ resolve(); };
+      setTimeout(done, ms);
+      w.addEventListener('statechange', function(){
+        if(w.state === 'activated' || w.state === 'redundant') done();
+      });
+    });
+  }
+
+  async function updateNow(){
+    dlgUpdate.disabled = true;
+    dlgUpdate.textContent = "Actualizando…";
+    try{
+      if(swRegistration){
+        await swRegistration.update();
+        await waitForWorker(swRegistration, 8000);
+      }
+    }catch(e){}
+    try{
+      var keys = await caches.keys();
+      await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }catch(e){}
+    try{
+      // Pasa por el SW (que lo vuelve a guardar en su cache) pero saltándose el cache HTTP.
+      await Promise.all(SHELL_FILES.map(function(u){ return fetch(u, { cache: 'reload' }); }));
+    }catch(e){}
+    location.reload();
+  }
+
+  appBtn.addEventListener('click', function(){
+    renderAppUI();
+    if(typeof appDialog.showModal === 'function') appDialog.showModal();
+    else appDialog.setAttribute('open', '');
+    checkLatestVersion(true);
+  });
+  // Tocar fuera del recuadro cierra el modal.
+  appDialog.addEventListener('click', function(e){
+    if(e.target === appDialog) appDialog.close();
+  });
+  dlgUpdate.addEventListener('click', updateNow);
+  window.addEventListener('online', renderAppUI);
+  window.addEventListener('offline', renderAppUI);
 
   if('serviceWorker' in navigator){
-    // sw.js llama a skipWaiting()/clients.claim() apenas instala, así que un
-    // "controllerchange" que no sea el primero (esta pestaña ya tenía un SW
-    // activo antes) significa que una versión nueva acaba de tomar control.
     var hadController = !!navigator.serviceWorker.controller;
-    var swRegistration = null;
-
     navigator.serviceWorker.addEventListener('controllerchange', function(){
-      if(hadController && updateBadge) updateBadge.hidden = false;
+      if(hadController){ newWorkerActive = true; renderAppUI(); }
       hadController = true;
     });
-
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').then(function(reg){
-        swRegistration = reg;
-      }).catch(function(){ /* offline no disponible en este navegador/origen */ });
-    });
-
-    // El navegador solo revisa sw.js por su cuenta en momentos puntuales;
-    // forzamos la revisión al volver a la pestaña y cada 5 minutos abierta.
-    document.addEventListener('visibilitychange', function(){
-      if(document.visibilityState === 'visible' && swRegistration){
-        swRegistration.update().catch(function(){});
-      }
-    });
-    setInterval(function(){
-      if(swRegistration) swRegistration.update().catch(function(){});
-    }, 5 * 60 * 1000);
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      swRegistration = reg;
+    }).catch(function(){ /* offline no disponible en este navegador/origen */ });
   }
 
-  if(updateBadge){
-    updateBadge.addEventListener('click', function(){
-      location.reload();
-    });
-  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') checkLatestVersion(false);
+  });
+  setInterval(function(){
+    if(document.visibilityState === 'visible') checkLatestVersion(true);
+  }, 30 * 60 * 1000);
+  renderAppUI();
+  setTimeout(function(){ checkLatestVersion(false); }, 3000);
 
-  // ---------- PWA: install prompt ----------
+  // ---------- Instalar (PWA) ----------
+  // El navegador avisa cuando se puede instalar; el botón vive en el modal.
   var deferredPrompt = null;
   var installBtn = document.getElementById('installBtn');
 
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
     deferredPrompt = e;
-    installBtn.classList.add('show');
+    installBtn.hidden = false;
   });
 
   installBtn.addEventListener('click', async function(){
@@ -921,11 +1004,11 @@
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
     deferredPrompt = null;
-    installBtn.classList.remove('show');
+    installBtn.hidden = true;
   });
 
   window.addEventListener('appinstalled', function(){
-    installBtn.classList.remove('show');
+    installBtn.hidden = true;
   });
 })();
 </script>

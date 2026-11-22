@@ -467,7 +467,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.4.0";
+  var APP_VERSION = "1.5.0";
   var versionEl = document.getElementById('appVersion');
   if(versionEl) versionEl.textContent = "v" + APP_VERSION;
 
@@ -644,6 +644,7 @@
     var auto = state.p2p;
     var p2pManual = state.p2pOverride ? state.p2pOverride.value : null;
     var autoSub = !auto ? 'sin dato · tócala para escribirla'
+      : auto.source === 'binance' ? 'Binance · ' + relativeTime(new Date(auto.at))
       : auto.source === 'paralelo' ? 'ref. dolarapi' + (auto.at ? ' · ' + relativeTime(new Date(auto.at)) : '')
       : 'guardada';
     model.p2p = {
@@ -769,9 +770,12 @@
     });
   }
 
-  // historicos trae la serie BCV con su fecha valor, incluida la ya publicada para el próximo
-  // día hábil (/dolares/oficial solo devuelve la vigente). /dolares trae además el paralelo.
-  // Binance P2P no se consulta directo: su API no permite CORS desde el navegador.
+  // Fuentes, todas en paralelo:
+  //  - rates.json (mismo dominio): lo genera la Action leyendo bcv.org.ve y Binance P2P desde el
+  //    servidor (Binance no permite CORS desde el navegador). No existe al probar en local.
+  //  - dolarapi historicos: serie BCV con fecha valor, incluida la ya publicada para el próximo día
+  //    hábil (/dolares/oficial solo devuelve la vigente). Respaldo si la Action se atrasa.
+  //  - dolarapi /dolares: oficial vigente + paralelo (respaldo de P2P).
   async function fetchRates(){
     if(fetching) return;
     lastAttempt = Date.now();
@@ -782,22 +786,25 @@
     renderInfo();
 
     var res = await Promise.allSettled([
+      getJSON('rates.json'),
       getJSON(API + 'historicos/dolares/oficial'),
       getJSON(API + 'dolares')
     ]);
-    var hist = res[0].status === 'fulfilled' ? R.parseHistoricos(res[0].value) : [];
-    var dol = res[1].status === 'fulfilled' ? R.parseDolares(res[1].value) : { oficial: null, paralelo: null };
+    var own = R.parseOwnRates(res[0].status === 'fulfilled' ? res[0].value : null);
+    var hist = res[1].status === 'fulfilled' ? R.parseHistoricos(res[1].value) : [];
+    var dol = res[2].status === 'fulfilled' ? R.parseDolares(res[2].value) : { oficial: null, paralelo: null };
 
     var ok = false;
-    if(hist.length){
-      state.bcv = R.normalizeEntries(hist.concat(dol.oficial ? [dol.oficial] : []));
-      ok = true;
-    } else if(dol.oficial){
-      state.bcv = R.normalizeEntries(state.bcv.concat([dol.oficial]));
+    var freshBcv = hist.concat(dol.oficial ? [dol.oficial] : [], own.bcv);
+    if(freshBcv.length){
+      // Misma fecha valor en varias fuentes: gana la última de la lista, la leída de bcv.org.ve.
+      state.bcv = R.normalizeEntries(state.bcv.concat(freshBcv));
       ok = true;
     }
-    if(dol.paralelo){
-      state.p2p = { value: dol.paralelo.value, source: 'paralelo', at: dol.paralelo.at || Date.now() };
+    var paralelo = dol.paralelo ? { value: dol.paralelo.value, source: 'paralelo', at: dol.paralelo.at || Date.now() } : null;
+    var binance = own.p2p || (state.p2p && state.p2p.source === 'binance' ? state.p2p : null);
+    if(own.p2p || paralelo){
+      state.p2p = R.pickP2p(binance, paralelo, Date.now());
       ok = true;
     }
     if(ok){

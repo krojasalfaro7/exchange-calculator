@@ -100,6 +100,27 @@
     return out;
   }
 
+  // ---------- rates.json propio (lo genera scripts/update-rates.js en la Action) ----------
+
+  // -> {bcv: [{fecha, value}] leídas de bcv.org.ve, p2p: {value, at, source: "binance"} | null}
+  function parseOwnRates(json) {
+    var out = { bcv: [], p2p: null };
+    if (!json || typeof json !== "object") return out;
+    if (json.bcv && Array.isArray(json.bcv.entries)) out.bcv = normalizeEntries(json.bcv.entries);
+    var p = json.p2p;
+    var v = p && validValue(p.value);
+    if (v !== null && v !== undefined && typeof p.at === "number") out.p2p = { value: v, at: p.at, source: "binance" };
+    return out;
+  }
+
+  // Binance P2P (vía nuestra Action) manda mientras tenga menos de 3 h; si no, la más reciente.
+  var P2P_FRESH_MS = 3 * 3600000;
+  function pickP2p(binance, paralelo, now) {
+    if (binance && now - binance.at < P2P_FRESH_MS) return binance;
+    if (binance && paralelo) return (paralelo.at || 0) > binance.at ? paralelo : binance;
+    return binance || paralelo || null;
+  }
+
   // ---------- Publicada vs vigente ----------
 
   // published: la última que publicó el BCV (lo que muestra bcv.org.ve, puede tener fecha valor futura).
@@ -170,6 +191,8 @@
     parseHistoricos: parseHistoricos,
     parseOficial: parseOficial,
     parseDolares: parseDolares,
+    parseOwnRates: parseOwnRates,
+    pickP2p: pickP2p,
     pickBcv: pickBcv,
     isStale: isStale,
     reconcileBcvOverride: reconcileBcvOverride,

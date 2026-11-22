@@ -1,6 +1,6 @@
 ---
 name: git-push-develop
-description: Stage, commit, and push changes to the develop branch of exchange-calculator (git@github.com:krojasalfaro7/exchange-calculator.git). Use when asked to "push to develop", "commit and push", "sync develop", "subir cambios", or "hacer push".
+description: Stage, commit, and push changes straight to the develop branch of exchange-calculator (auto-deploys to calc.ubbedigital.com; standing approval, no PR). Use after finishing any change in this repo, or when asked to "push to develop", "commit and push", "subir cambios", or "hacer push".
 ---
 
 # Push a develop
@@ -11,14 +11,16 @@ No hay CI ni PR obligatorio: el flujo normal es commitear directo en
 `develop` y hacer push. No hay build/servidor que lanzar aquí — el
 "driver" es `git` mismo, invocado con `Bash`.
 
-## Antes de nada: confirmar con el usuario
+## Autorización: push directo, sin preguntar
 
-`git push` afecta un repositorio compartido/remoto. Sigue el protocolo
-de seguridad de git ya establecido para esta sesión: **nunca hagas
-push sin que el usuario lo haya pedido explícitamente para ese cambio
-concreto** (una aprobación anterior no cubre cambios nuevos). Si el
-usuario solo pidió "commitea esto", commitea y **pregunta** antes de
-subir.
+Kevin autorizó de forma permanente (2026-11-22) que en este repo **todo cambio
+terminado y probado se commitea y se sube directo a `develop`**, sin PR y sin
+pedir confirmación: el push dispara el deploy automático a calc.ubbedigital.com.
+Lo que sigue prohibido está en "Reglas duras".
+
+Ojo: la Action de tasas (`update-rates` dentro de `deploy-pages.yml`) también
+commitea en `develop` (`data/bcv.json`) cuando el BCV publica una tasa nueva,
+así que antes de subir hay que traer esos commits con `git pull --rebase`.
 
 ## Pasos (verificados en este repo)
 
@@ -41,9 +43,10 @@ subir.
    git status --short --branch
    ```
 
-   Si `develop` local está detrás de `origin/develop`, avisa al usuario
-   y decide si hace falta `git pull` antes de seguir (no lo hagas de
-   forma automática si hay commits locales sin subir todavía).
+   Si `develop` local está detrás de `origin/develop` (normalmente por
+   los commits del bot de tasas), haz `git pull --rebase origin develop`.
+   Si el rebase choca en algo que no sea `data/bcv.json`, detente y
+   avísale al usuario.
 
 3. **Agregar solo los archivos relevantes** (nunca `git add -A` a
    ciegas):
@@ -60,13 +63,12 @@ subir.
    git commit -m "$(cat <<'EOF'
    Resumen corto del cambio en imperativo.
 
-   Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+   Co-Authored-By: Claude <noreply@anthropic.com>
    EOF
    )"
    ```
 
-5. **Push** (solo tras confirmación explícita del usuario para *este*
-   cambio):
+5. **Push** (directo, ver "Autorización"):
 
    ```bash
    git push origin develop
@@ -75,11 +77,13 @@ subir.
    Nunca `--force` / `--force-with-lease` sobre `develop` a menos que
    el usuario lo pida explícitamente y entienda el riesgo.
 
-6. **Verificar:**
+6. **Verificar el push y el deploy:**
 
    ```bash
    git status --short
    git log --oneline -3
+   gh run list --workflow deploy-pages.yml --limit 1
+   gh run watch <run-id> --exit-status
    ```
 
 ## Reglas duras (no negociables)

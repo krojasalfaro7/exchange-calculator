@@ -1,18 +1,28 @@
 name: Deploy PWA to GitHub Pages
 
+# Cada corrida lee la tasa del BCV (bcv.org.ve) y Binance P2P, genera rates.json y publica.
+#  - push a develop: deploy normal (con tasas frescas).
+#  - schedule: refresca las tasas. El BCV publica la del próximo día hábil en la tarde, así que
+#    entre semana de 12:00 a 23:59 (hora de Caracas, UTC-4) se revisa cada 30 min; el resto, cada 3 h.
+#  - Cuando el BCV publica una tasa nueva, el bot la commitea en data/bcv.json: queda el historial
+#    y el repo tiene actividad (GitHub apaga los schedule de repos públicos tras 60 días sin ella).
 on:
   push:
     branches: ["develop"]
+  schedule:
+    - cron: "7,37 16-23 * * 1-5"   # lun-vie 12:07-19:37 VET
+    - cron: "7,37 0-3 * * 2-6"     # lun-vie 20:07-23:37 VET
+    - cron: "17 */3 * * *"         # siempre, cada 3 h
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # commitear data/bcv.json
   pages: write
   id-token: write
 
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false   # en cola: un push no debe cortar a la mitad el commit del bot
 
 jobs:
   deploy:
@@ -23,6 +33,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: develop   # el último develop (en cola puede haber llegado otro commit)
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: node --test
+
+      - name: Leer tasas (BCV y Binance P2P)
+        id: rates
+        run: node scripts/update-rates.js
+
+      - name: Commitear tasa BCV nueva
+        if: steps.rates.outputs.bcv_changed == 'true'
+        env:
+          SUMMARY: ${{ steps.rates.outputs.bcv_summary }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/bcv.json
+          git commit -m "Tasa BCV: $SUMMARY"
+          for i in 1 2 3; do
+            git pull --rebase origin develop && git push origin HEAD:develop && exit 0
+            sleep 5
+          done
+          echo "::warning::No se pudo subir data/bcv.json; se publica igual"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

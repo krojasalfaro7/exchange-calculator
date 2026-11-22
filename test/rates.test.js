@@ -41,6 +41,29 @@ test("parseDolares reads the oficial fecha valor and the paralelo", () => {
   assert.equal(d.paralelo.at, Date.parse("2026-11-22T12:01:18.557Z"));
 });
 
+test("parseOwnRates reads the Action's rates.json", () => {
+  const own = R.parseOwnRates({
+    generatedAt: 1, bcv: { ok: true, entries: [{ fecha: "2026-11-24", value: 919.8227 }] },
+    p2p: { buy: 1093, sell: 1094, value: 1093.5, at: 1000, source: "binance" }
+  });
+  assert.deepEqual(own.bcv, [{ fecha: "2026-11-24", value: 919.8227 }]);
+  assert.deepEqual(own.p2p, { value: 1093.5, at: 1000, source: "binance" });
+  assert.deepEqual(R.parseOwnRates({ bcv: {}, p2p: null }), { bcv: [], p2p: null });
+  assert.deepEqual(R.parseOwnRates(null), { bcv: [], p2p: null });
+});
+
+test("pickP2p prefers a fresh Binance reading, else the newest", () => {
+  const H = 3600000, now = 10 * H;
+  const binance = { value: 1093.5, at: now - H, source: "binance" };
+  const paralelo = { value: 1089.26, at: now - 10 * 60000, source: "paralelo" };
+  assert.equal(R.pickP2p(binance, paralelo, now), binance);
+  const old = { value: 1080, at: now - 5 * H, source: "binance" };
+  assert.equal(R.pickP2p(old, paralelo, now), paralelo);
+  assert.equal(R.pickP2p(old, null, now), old);
+  assert.equal(R.pickP2p(null, paralelo, now), paralelo);
+  assert.equal(R.pickP2p(null, null, now), null);
+});
+
 test("pickBcv splits published (future fecha valor) from vigente", () => {
   const entries = R.parseHistoricos(HIST);
   const sunday = R.pickBcv(entries, "2026-11-22");

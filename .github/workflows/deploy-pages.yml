@@ -29,7 +29,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -72,8 +72,20 @@ jobs:
         with:
           path: "."
 
+      # La API de artefactos a veces aún no lista el recién subido ("No artifacts named
+      # github-pages were found", aunque la subida terminó bien): se reintenta tras una pausa.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Esperar antes de reintentar el deploy
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to GitHub Pages (reintento)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5
 
       # Si bcv.org.ve no se puede leer y ya faltan 2+ días hábiles de tasa (p. ej. rediseñaron la

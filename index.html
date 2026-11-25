@@ -325,7 +325,9 @@
       padding-top:env(safe-area-inset-top);
       padding-bottom:env(safe-area-inset-bottom);
       align-items:stretch;
-      height:100dvh;
+      /* --app-h = window.innerHeight (lo pone el script del <head>): tras recargar una PWA
+         instalada, 100dvh a veces queda más alto que la pantalla y la barra de abajo se corta. */
+      height:var(--app-h, 100dvh);
     }
     .app{
       max-width:none;
@@ -335,11 +337,15 @@
       border:none;
       display:flex;
       flex-direction:column;
+      min-height:0;
     }
+    .display, .bottom-bar{flex-shrink:0;}
+    /* El teclado toma el espacio que sobra y se encoge si hace falta (3 filas de tasas +
+       historial en pantallas bajas), así la barra de abajo nunca queda fuera. */
     .keypad{
-      flex:1;
-      grid-template-rows:repeat(6, 1fr);
-      min-height:280px;
+      flex:1 1 0;
+      grid-template-rows:repeat(6, minmax(0, 1fr));
+      min-height:0;
     }
     button.key{
       height:100%;
@@ -347,9 +353,11 @@
       font-size:26px;
     }
     button.key.op{font-size:24px;}
+    .key-eq-cell{min-height:0;}
     .key-eq-cell button.key.eq{
-      width:60px;
-      height:60px;
+      width:auto;
+      height:min(60px, calc(100% - 6px));
+      aspect-ratio:1;
       font-size:24px;
     }
   }
@@ -362,6 +370,15 @@
       : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', theme);
   }catch(e){}
+  // Alto real de la ventana (ver --app-h en el CSS); se recalcula al cambiar de tamaño y al volver.
+  function setAppHeight(){
+    if(window.innerHeight > 0) document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+  }
+  setAppHeight();
+  window.addEventListener('resize', setAppHeight);
+  window.addEventListener('orientationchange', setAppHeight);
+  window.addEventListener('pageshow', setAppHeight);
+  document.addEventListener('visibilitychange', setAppHeight);
 })();
 </script>
 </head>
@@ -458,7 +475,7 @@
     <p class="sheet-status" id="dlgStatus"></p>
     <button type="button" class="sheet-btn primary" id="dlgUpdate">Actualizar ahora</button>
     <button type="button" class="sheet-btn" id="installBtn" hidden>Instalar en este dispositivo</button>
-    <button type="submit" class="sheet-btn" value="close">Cerrar</button>
+    <button type="submit" class="sheet-btn" value="close" id="dlgClose">Cerrar</button>
   </form>
 </dialog>
 
@@ -468,7 +485,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.6.1";
+  var APP_VERSION = "1.7.0";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -878,7 +895,9 @@
   var SHELL_FILES = ['./', './index.html', './calc.js', './rates.js', './manifest.json'];
   var VERSION_CHECK_MS = 10 * 60 * 1000;
   var swRegistration = null;
+  var dlgClose = document.getElementById('dlgClose');
   var latestVersion = null, versionCheckedAt = 0, versionError = false, newWorkerActive = false;
+  var promptedFor = null, autoPrompted = false;
 
   function updateAvailable(){
     return newWorkerActive || (latestVersion !== null && latestVersion !== APP_VERSION);
@@ -901,6 +920,30 @@
     dlgStatus.textContent = text;
     dlgStatus.className = 'sheet-status' + (cls ? ' ' + cls : '');
     dlgUpdate.disabled = !navigator.onLine;
+    dlgClose.textContent = hasUpdate ? "Más tarde" : "Cerrar";
+    maybePromptUpdate();
+  }
+
+  function openAppDialog(auto){
+    autoPrompted = auto;
+    if(updateAvailable()) promptedFor = latestVersion || 'sw'; // ya lo vio: no volver a abrirlo solo
+    renderAppUI();
+    if(appDialog.open) return;
+    if(typeof appDialog.showModal === 'function') appDialog.showModal();
+    else appDialog.setAttribute('open', '');
+  }
+
+  // Como en Leve Market: si hay versión nueva, el modal se abre solo (una vez por versión y
+  // sesión; «Más tarde» lo deja en el botón de abajo). No interrumpe si se está editando una tasa.
+  function maybePromptUpdate(){
+    if(!updateAvailable() || appDialog.open || !navigator.onLine) return;
+    // 'sw' = lo detectó el service worker antes de saber el número; es la misma actualización.
+    var key = latestVersion || 'sw';
+    if(promptedFor && (promptedFor === key || promptedFor === 'sw' || key === 'sw')) return;
+    var active = document.activeElement;
+    if(active && active.tagName === 'INPUT') return; // se reintenta al salir del campo
+    promptedFor = key;
+    openAppDialog(true);
   }
 
   async function checkLatestVersion(force){
@@ -956,14 +999,16 @@
   }
 
   appBtn.addEventListener('click', function(){
-    renderAppUI();
-    if(typeof appDialog.showModal === 'function') appDialog.showModal();
-    else appDialog.setAttribute('open', '');
+    openAppDialog(false);
     checkLatestVersion(true);
   });
-  // Tocar fuera del recuadro cierra el modal.
+  // Tocar fuera del recuadro cierra el modal, salvo el aviso automático (hay que elegir botón).
   appDialog.addEventListener('click', function(e){
-    if(e.target === appDialog) appDialog.close();
+    if(e.target === appDialog && !autoPrompted) appDialog.close();
+  });
+  appDialog.addEventListener('close', function(){ autoPrompted = false; });
+  document.addEventListener('focusout', function(e){
+    if(e.target && e.target.tagName === 'INPUT') setTimeout(maybePromptUpdate, 300);
   });
   dlgUpdate.addEventListener('click', updateNow);
   window.addEventListener('online', renderAppUI);

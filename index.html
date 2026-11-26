@@ -27,21 +27,25 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
 <style>
+  /* Modo oscuro: fondo casi negro (igual al theme-color) y superficies sólidas un par de pasos
+     más claras, para que las filas de tasas y las teclas se distingan; grises secundarios con
+     contraste ≥ 4.5:1 (antes las filas eran 3 % de blanco sobre negro puro). */
   :root{
-    --bg:#000000;
-    --panel:#000000;
-    --key:#161616;
+    --bg:#0b0c0e;
+    --panel:#0b0c0e;
+    --key:#1d1f23;
     --accent:#ff7a3d;
     --text:#f5f5f2;
-    --muted:#8a8d93;
-    --history:#5a5c60;
-    --bcv:#5b8fb0;
+    --muted:#a4a8af;
+    --history:#7f838a;
+    --bcv:#6fa8cf;
     --binance:#f0b90b;
-    --border:rgba(255,255,255,.08);
-    --hairline:rgba(255,255,255,.25);
-    --row-bg:rgba(255,255,255,.03);
+    --border:rgba(255,255,255,.12);
+    --hairline:rgba(255,255,255,.38);
+    --row-bg:#1a1c20;
+    --btn-bg:#2c2f35;
     --shadow:rgba(0,0,0,.6);
-    --gap:#000000;
+    --gap:#0b0c0e;
     color-scheme:dark;
   }
   :root[data-theme="light"]{
@@ -55,6 +59,7 @@
     --border:rgba(0,0,0,.08);
     --hairline:rgba(0,0,0,.25);
     --row-bg:rgba(0,0,0,.04);
+    --btn-bg:rgba(0,0,0,.07);
     --shadow:rgba(0,0,0,.15);
     --gap:#e2e2df;
     color-scheme:light;
@@ -269,6 +274,10 @@
   }
   .sheet-hint{margin:0; font-size:11.5px; line-height:1.4; color:var(--muted); text-align:center;}
   .sheet-hint a{color:inherit;}
+  .diag summary{font-size:11.5px; color:var(--muted); text-align:center; cursor:pointer;}
+  .diag pre{margin:8px 0; max-height:180px; overflow:auto; font-size:9.5px; line-height:1.35; white-space:pre-wrap; word-break:break-all; color:var(--text); background:var(--bg); border-radius:8px; padding:8px;}
+  .diag-actions{display:flex; gap:8px;}
+  .diag-actions .sheet-btn{flex:1; padding:8px 0; font-size:12.5px;}
   .icon-btn, .app-btn{
     background:none;
     border:none;
@@ -314,7 +323,7 @@
     font-weight:600;
     cursor:pointer;
     font-family:inherit;
-    background:var(--row-bg);
+    background:var(--btn-bg);
     color:var(--text);
   }
   .sheet-btn.primary{background:var(--accent); color:#1a0e00;}
@@ -394,10 +403,56 @@
   window.addEventListener('load', function(){
     [0, 300, 1000, 2500].forEach(function(ms){ setTimeout(setAppHeight, ms); });
   });
+
+  // ---------- Diagnóstico de pantalla (temporal) ----------
+  // La barra de abajo se oculta en Android tras «Actualizar ahora» y vuelve al salir y entrar.
+  // Se guardan medidas (en localStorage, para que sobrevivan a la recarga) y se ven en el modal.
+  var DIAG_KEY = 'diag.screen';
+  var DIAG_ALWAYS = /^(carga|antes|volvió)/;
+  function diagSnap(ev){
+    try{
+      var de = document.documentElement, vv = window.visualViewport;
+      var bar = document.querySelector('.bottom-bar');
+      var r = bar ? bar.getBoundingClientRect() : null;
+      var probe = document.getElementById('saProbe');
+      var ps = probe ? getComputedStyle(probe) : null;
+      var nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+      var m = {
+        nav: nav ? nav.type : '?',
+        mode: matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+        iH: innerHeight, oH: outerHeight, cH: de.clientHeight,
+        vv: vv ? Math.round(vv.height) + '/' + Math.round(vv.offsetTop) + '/' + vv.scale.toFixed(2) : '-',
+        scr: screen.height + '/' + screen.availHeight,
+        sY: Math.round(scrollY),
+        app: de.style.getPropertyValue('--app-h') || '-',
+        body: document.body ? Math.round(document.body.getBoundingClientRect().height) : '-',
+        bar: r ? Math.round(r.top) + '-' + Math.round(r.bottom) : '-',
+        sa: ps ? ps.paddingTop + '/' + ps.paddingBottom : '-'
+      };
+      var list = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]');
+      var last = list[list.length - 1];
+      if(!DIAG_ALWAYS.test(ev) && last && JSON.stringify(last.m) === JSON.stringify(m)) return;
+      list.push({ t: new Date().toTimeString().slice(0, 8), ev: ev, m: m });
+      while(list.length > 20) list.shift();
+      localStorage.setItem(DIAG_KEY, JSON.stringify(list));
+    }catch(e){}
+  }
+  window.diagSnap = diagSnap;
+  window.addEventListener('load', function(){
+    [0, 300, 1000, 2500].forEach(function(ms){
+      setTimeout(function(){ diagSnap(ms === 0 ? 'carga' : 'carga+' + ms); }, ms + 50);
+    });
+  });
+  window.addEventListener('resize', function(){ diagSnap('resize'); });
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ diagSnap('vv-resize'); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') setTimeout(function(){ diagSnap('volvió'); }, 300);
+  });
 })();
 </script>
 </head>
 <body>
+<div id="saProbe" aria-hidden="true" style="position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)"></div>
 
 <div class="app">
   <div class="display">
@@ -491,6 +546,14 @@
     <button type="button" class="sheet-btn" id="installBtn" hidden>Instalar en este dispositivo</button>
     <button type="submit" class="sheet-btn" value="close" id="dlgClose">Cerrar</button>
     <p class="sheet-hint">Toca una tasa para ajustarla a mano · fuente oficial: <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a></p>
+    <details class="diag" id="diagBox">
+      <summary>Diagnóstico de pantalla</summary>
+      <pre id="diagOut"></pre>
+      <div class="diag-actions">
+        <button type="button" class="sheet-btn" id="diagCopy">Copiar</button>
+        <button type="button" class="sheet-btn" id="diagClear">Borrar</button>
+      </div>
+    </details>
   </form>
 </dialog>
 
@@ -500,7 +563,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.8.0";
+  var APP_VERSION = "1.8.1";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -940,8 +1003,31 @@
     maybePromptUpdate();
   }
 
+  // Diagnóstico de pantalla (ver diagSnap en el <head>).
+  var diagOut = document.getElementById('diagOut');
+  function renderDiag(){
+    var list = [];
+    try{ list = JSON.parse(localStorage.getItem('diag.screen') || '[]'); }catch(e){}
+    diagOut.textContent = list.length ? list.map(function(s){
+      var m = s.m;
+      return s.t + ' ' + s.ev + ' [' + m.nav + ', ' + m.mode + ']\n' +
+        '  iH ' + m.iH + ' oH ' + m.oH + ' cH ' + m.cH + ' vv ' + m.vv + ' scr ' + m.scr + '\n' +
+        '  sY ' + m.sY + ' app ' + m.app + ' body ' + m.body + ' bar ' + m.bar + ' sa ' + m.sa;
+    }).join('\n') + '\n' + navigator.userAgent : "Sin datos todavía.";
+  }
+  document.getElementById('diagBox').addEventListener('toggle', renderDiag);
+  document.getElementById('diagCopy').addEventListener('click', function(){
+    renderDiag();
+    if(navigator.clipboard) navigator.clipboard.writeText('v' + APP_VERSION + '\n' + diagOut.textContent).catch(function(){});
+  });
+  document.getElementById('diagClear').addEventListener('click', function(){
+    try{ localStorage.removeItem('diag.screen'); }catch(e){}
+    renderDiag();
+  });
+
   function openAppDialog(auto){
     autoPrompted = auto;
+    renderDiag();
     if(updateAvailable()) promptedFor = latestVersion || 'sw'; // ya lo vio: no volver a abrirlo solo
     renderAppUI();
     if(appDialog.open) return;
@@ -1011,6 +1097,7 @@
       // Pasa por el SW (que lo vuelve a guardar en su cache) pero saltándose el cache HTTP.
       await Promise.all(SHELL_FILES.map(function(u){ return fetch(u, { cache: 'reload' }); }));
     }catch(e){}
+    if(window.diagSnap) window.diagSnap('antes de recargar');
     location.reload();
   }
 

@@ -2,7 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<!-- Sin viewport-fit=cover a propósito: en Android, Chrome 135+ con cover dibuja la página detrás
+     de la barra de navegación del sistema y, tras recargar (p. ej. «Actualizar ahora»), la barra de
+     abajo quedaba tapada hasta salir y volver a entrar. En iOS sí hace falta (barra de estado
+     translúcida) y lo agrega el script del <head>. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Calculadora BCV · Binance P2P</title>
 
 <!-- PWA -->
@@ -370,7 +374,15 @@
       : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', theme);
   }catch(e){}
-  // Alto real de la ventana (ver --app-h en el CSS); se recalcula al cambiar de tamaño y al volver.
+  // viewport-fit=cover solo en iOS (ver el comentario del <meta name="viewport">).
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var vpMeta = document.querySelector('meta[name="viewport"]');
+  if(isIOS && vpMeta) vpMeta.setAttribute('content', vpMeta.getAttribute('content') + ', viewport-fit=cover');
+
+  // Alto real de la ventana (ver --app-h en el CSS). Se recalcula al cambiar de tamaño, al volver,
+  // cuando cambia el visualViewport y unas veces más tras cargar: después de un reload el alto
+  // definitivo puede llegar tarde y sin evento resize.
   function setAppHeight(){
     if(window.innerHeight > 0) document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
   }
@@ -379,6 +391,10 @@
   window.addEventListener('orientationchange', setAppHeight);
   window.addEventListener('pageshow', setAppHeight);
   document.addEventListener('visibilitychange', setAppHeight);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', setAppHeight);
+  window.addEventListener('load', function(){
+    [0, 300, 1000, 2500].forEach(function(ms){ setTimeout(setAppHeight, ms); });
+  });
 })();
 </script>
 </head>
@@ -485,7 +501,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.7.0";
+  var APP_VERSION = "1.7.1";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');

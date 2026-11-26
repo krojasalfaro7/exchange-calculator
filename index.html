@@ -195,31 +195,26 @@
     margin-left:8px;
   }
 
-  .update-row{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-top:8px;
-    padding:0 2px;
-  }
-  .update-info{
-    font-size:10.5px;
-    color:var(--muted);
-  }
+  /* Estado de las tasas en la barra de abajo: todo el texto es el botón de refrescar. */
   .update-btn{
+    flex:1;
+    min-width:0;
     display:flex;
     align-items:center;
-    gap:5px;
+    justify-content:center;
+    gap:6px;
     background:none;
     border:none;
-    color:var(--accent);
-    font-size:11.5px;
-    font-weight:600;
+    color:var(--muted);
+    font-family:inherit;
+    font-size:11px;
     cursor:pointer;
-    padding:3px 4px;
+    padding:6px 4px;
+    border-radius:8px;
   }
-  .update-btn .spin{display:inline-block;}
+  .update-btn .spin{display:inline-block; color:var(--accent); font-size:14px; line-height:1; font-weight:700;}
   .update-btn.loading .spin{animation:spin 0.9s linear infinite;}
+  .update-info{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
   .keypad{
     display:grid;
@@ -241,7 +236,8 @@
   }
   button.key:active{filter:brightness(1.5);}
   button.key.op{color:var(--accent); font-weight:500; font-size:22px;}
-  button.key.paren{color:var(--accent); font-weight:500; font-size:19px;}
+  /* Los paréntesis se usan poco: fila más baja (≈60 %) para dejarle espacio a las tasas. */
+  button.key.paren{color:var(--accent); font-weight:500; font-size:18px; padding:8px 0;}
   button.key.fn{color:var(--accent); font-size:20px;}
   button.key.fn.clear{font-weight:700;}
   button.key.mode-key{
@@ -271,8 +267,8 @@
     color:var(--muted);
     font-size:10.5px;
   }
-  .bottom-bar a{color:inherit;}
-  .bar-text{flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sheet-hint{margin:0; font-size:11.5px; line-height:1.4; color:var(--muted); text-align:center;}
+  .sheet-hint a{color:inherit;}
   .icon-btn, .app-btn{
     background:none;
     border:none;
@@ -288,7 +284,9 @@
   }
   .icon-btn svg, .app-btn svg{display:block;}
   .app-btn{font-size:10.5px;}
+  .app-btn .badge{display:none; width:7px; height:7px; border-radius:50%; background:var(--accent);}
   .app-btn.has-update{color:var(--accent); font-weight:700;}
+  .app-btn.has-update .badge{display:block;}
 
   /* Modal de actualizar la app */
   dialog.sheet{
@@ -348,7 +346,7 @@
        historial en pantallas bajas), así la barra de abajo nunca queda fuera. */
     .keypad{
       flex:1 1 0;
-      grid-template-rows:repeat(6, minmax(0, 1fr));
+      grid-template-rows:minmax(34px, .6fr) repeat(5, minmax(0, 1fr));
       min-height:0;
     }
     button.key{
@@ -357,6 +355,7 @@
       font-size:26px;
     }
     button.key.op{font-size:24px;}
+    button.key.paren{font-size:20px; padding:0; line-height:1;}
     .key-eq-cell{min-height:0;}
     .key-eq-cell button.key.eq{
       width:auto;
@@ -434,11 +433,6 @@
         </span>
       </div>
     </div>
-
-    <div class="update-row">
-      <span class="update-info" id="updateInfo">Toca para traer las tasas</span>
-      <button class="update-btn" id="refreshBtn"><span class="spin">⟳</span> Actualizar</button>
-    </div>
   </div>
 
   <div class="keypad">
@@ -475,9 +469,13 @@
     <button class="icon-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">
       <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/></svg>
     </button>
-    <span class="bar-text">Toca una tasa para ajustarla · <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a></span>
-    <button class="app-btn" id="appBtn" title="Actualizar la app" aria-haspopup="dialog">
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <!-- Estado de las tasas; tocarlo las vuelve a traer. La versión de la app va aparte, sin el
+         ícono de refrescar, para que no se confundan los dos «actualizar». -->
+    <button class="update-btn" id="refreshBtn" title="Actualizar las tasas">
+      <span class="spin" aria-hidden="true">⟳</span><span class="update-info" id="updateInfo">Toca para traer las tasas</span>
+    </button>
+    <button class="app-btn" id="appBtn" title="Versión de la app" aria-haspopup="dialog">
+      <span class="badge" aria-hidden="true"></span>
       <span id="appBtnLabel"></span>
     </button>
   </div>
@@ -492,6 +490,7 @@
     <button type="button" class="sheet-btn primary" id="dlgUpdate">Actualizar ahora</button>
     <button type="button" class="sheet-btn" id="installBtn" hidden>Instalar en este dispositivo</button>
     <button type="submit" class="sheet-btn" value="close" id="dlgClose">Cerrar</button>
+    <p class="sheet-hint">Toca una tasa para ajustarla a mano · fuente oficial: <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a></p>
   </form>
 </dialog>
 
@@ -501,7 +500,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.7.1";
+  var APP_VERSION = "1.8.0";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -652,7 +651,7 @@
     if(rec.dropped){
       state.bcvOverride = null;
       saveState();
-      showNotice('El BCV publicó una tasa nueva: se descartó tu ajuste manual');
+      showNotice('Tasa BCV nueva: se quitó tu ajuste');
     }
 
     function bcvRow(entry, sub){
@@ -780,12 +779,13 @@
     var pub = ctx && ctx.pick.published;
     if(fetching) text = "Actualizando…";
     else if(notice && Date.now() < noticeUntil){ text = notice; warn = true; }
-    else if(fetchError === 'offline' || !navigator.onLine) text = "Sin conexión · usando tasas guardadas";
-    else if(fetchError){ text = "No se pudo actualizar · usando tasas guardadas"; warn = true; }
-    else if(pub && R.isStale(pub, ctx.today)){ text = "Última tasa BCV: " + R.fmtFecha(pub.fecha) + " · revisa bcv.org.ve"; warn = true; }
+    else if(fetchError === 'offline' || !navigator.onLine) text = "Sin conexión · tasas guardadas";
+    else if(fetchError){ text = "No se pudo actualizar · tasas guardadas"; warn = true; }
+    else if(pub && R.isStale(pub, ctx.today)){ text = "BCV del " + R.fmtFecha(pub.fecha) + " · revisa bcv.org.ve"; warn = true; }
     else if(state.fetchedAt) text = "Actualizado " + relativeTime(new Date(state.fetchedAt));
     else text = "Toca para traer las tasas";
     updateInfo.textContent = text;
+    refreshBtn.title = text + " · toca para actualizar las tasas";
     updateInfo.classList.toggle('warn', warn);
   }
 
@@ -922,8 +922,8 @@
   function renderAppUI(){
     var hasUpdate = updateAvailable();
     appBtn.classList.toggle('has-update', hasUpdate);
-    appBtnLabel.textContent = hasUpdate ? "Actualizar" : "v" + APP_VERSION;
-    appBtn.title = hasUpdate ? "Hay una versión nueva: toca para actualizar" : "Actualizar la app";
+    appBtnLabel.textContent = hasUpdate ? "Nueva versión" : "v" + APP_VERSION;
+    appBtn.title = hasUpdate ? "Hay una versión nueva: toca para actualizar" : "Versión de la app";
 
     dlgCurrent.textContent = "v" + APP_VERSION;
     dlgLatest.textContent = latestVersion ? "v" + latestVersion : (versionError ? "no disponible" : "buscando…");

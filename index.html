@@ -65,7 +65,9 @@
     color-scheme:light;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{height:100%; overflow:hidden; overscroll-behavior:none;}
+  /* Sin alto fijo ni overflow:hidden: si algo no cabe, la página se desliza en vez de esconderlo.
+     overscroll-behavior-y evita el pull-to-refresh de Chrome. */
+  html,body{overscroll-behavior-y:none;}
   body{
     margin:0;
     background:var(--bg);
@@ -274,10 +276,6 @@
   }
   .sheet-hint{margin:0; font-size:11.5px; line-height:1.4; color:var(--muted); text-align:center;}
   .sheet-hint a{color:inherit;}
-  .diag summary{font-size:11.5px; color:var(--muted); text-align:center; cursor:pointer;}
-  .diag pre{margin:8px 0; max-height:180px; overflow:auto; font-size:9.5px; line-height:1.35; white-space:pre-wrap; word-break:break-all; color:var(--text); background:var(--bg); border-radius:8px; padding:8px;}
-  .diag-actions{display:flex; gap:8px;}
-  .diag-actions .sheet-btn{flex:1; padding:8px 0; font-size:12.5px;}
   .icon-btn, .app-btn{
     background:none;
     border:none;
@@ -330,15 +328,18 @@
   .sheet-btn:disabled{opacity:.6; cursor:default;}
   .sheet-btn[hidden]{display:none;}
 
+  /* Teléfono: el diseño NO depende del alto de la ventana. Tras «Actualizar ahora» (reload) Android
+     reportaba un alto mayor que el visible y, como la app se estiraba a ese alto, la barra de abajo
+     quedaba fuera. Ahora todo mide según el ANCHO (que siempre llega bien): las teclas tienen alto
+     propio, la barra va a continuación del teclado y, si no cabe, la página se desliza. El
+     historial reserva sus 3 líneas para que las teclas no cambien de sitio al calcular. */
   @media (max-width:480px){
     body{
+      display:block;
+      min-height:0;
       padding:0;
       padding-top:env(safe-area-inset-top);
       padding-bottom:env(safe-area-inset-bottom);
-      align-items:stretch;
-      /* --app-h = window.innerHeight (lo pone el script del <head>): tras recargar una PWA
-         instalada, 100dvh a veces queda más alto que la pantalla y la barra de abajo se corta. */
-      height:var(--app-h, 100dvh);
     }
     .app{
       max-width:none;
@@ -346,17 +347,11 @@
       border-radius:0;
       box-shadow:none;
       border:none;
-      display:flex;
-      flex-direction:column;
-      min-height:0;
     }
-    .display, .bottom-bar{flex-shrink:0;}
-    /* El teclado toma el espacio que sobra y se encoge si hace falta (3 filas de tasas +
-       historial en pantallas bajas), así la barra de abajo nunca queda fuera. */
+    .history{height:64px;}
     .keypad{
-      flex:1 1 0;
-      grid-template-rows:minmax(34px, .6fr) repeat(5, minmax(0, 1fr));
-      min-height:0;
+      --key-h:clamp(52px, 18vw, 76px);
+      grid-template-rows:calc(var(--key-h) * .6) repeat(5, var(--key-h));
     }
     button.key{
       height:100%;
@@ -365,7 +360,6 @@
     }
     button.key.op{font-size:24px;}
     button.key.paren{font-size:20px; padding:0; line-height:1;}
-    .key-eq-cell{min-height:0;}
     .key-eq-cell button.key.eq{
       width:auto;
       height:min(60px, calc(100% - 6px));
@@ -387,72 +381,10 @@
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var vpMeta = document.querySelector('meta[name="viewport"]');
   if(isIOS && vpMeta) vpMeta.setAttribute('content', vpMeta.getAttribute('content') + ', viewport-fit=cover');
-
-  // Alto real de la ventana (ver --app-h en el CSS). Se recalcula al cambiar de tamaño, al volver,
-  // cuando cambia el visualViewport y unas veces más tras cargar: después de un reload el alto
-  // definitivo puede llegar tarde y sin evento resize.
-  function setAppHeight(){
-    if(window.innerHeight > 0) document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
-  }
-  setAppHeight();
-  window.addEventListener('resize', setAppHeight);
-  window.addEventListener('orientationchange', setAppHeight);
-  window.addEventListener('pageshow', setAppHeight);
-  document.addEventListener('visibilitychange', setAppHeight);
-  if(window.visualViewport) window.visualViewport.addEventListener('resize', setAppHeight);
-  window.addEventListener('load', function(){
-    [0, 300, 1000, 2500].forEach(function(ms){ setTimeout(setAppHeight, ms); });
-  });
-
-  // ---------- Diagnóstico de pantalla (temporal) ----------
-  // La barra de abajo se oculta en Android tras «Actualizar ahora» y vuelve al salir y entrar.
-  // Se guardan medidas (en localStorage, para que sobrevivan a la recarga) y se ven en el modal.
-  var DIAG_KEY = 'diag.screen';
-  var DIAG_ALWAYS = /^(carga|antes|volvió)/;
-  function diagSnap(ev){
-    try{
-      var de = document.documentElement, vv = window.visualViewport;
-      var bar = document.querySelector('.bottom-bar');
-      var r = bar ? bar.getBoundingClientRect() : null;
-      var probe = document.getElementById('saProbe');
-      var ps = probe ? getComputedStyle(probe) : null;
-      var nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
-      var m = {
-        nav: nav ? nav.type : '?',
-        mode: matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-        iH: innerHeight, oH: outerHeight, cH: de.clientHeight,
-        vv: vv ? Math.round(vv.height) + '/' + Math.round(vv.offsetTop) + '/' + vv.scale.toFixed(2) : '-',
-        scr: screen.height + '/' + screen.availHeight,
-        sY: Math.round(scrollY),
-        app: de.style.getPropertyValue('--app-h') || '-',
-        body: document.body ? Math.round(document.body.getBoundingClientRect().height) : '-',
-        bar: r ? Math.round(r.top) + '-' + Math.round(r.bottom) : '-',
-        sa: ps ? ps.paddingTop + '/' + ps.paddingBottom : '-'
-      };
-      var list = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]');
-      var last = list[list.length - 1];
-      if(!DIAG_ALWAYS.test(ev) && last && JSON.stringify(last.m) === JSON.stringify(m)) return;
-      list.push({ t: new Date().toTimeString().slice(0, 8), ev: ev, m: m });
-      while(list.length > 20) list.shift();
-      localStorage.setItem(DIAG_KEY, JSON.stringify(list));
-    }catch(e){}
-  }
-  window.diagSnap = diagSnap;
-  window.addEventListener('load', function(){
-    [0, 300, 1000, 2500].forEach(function(ms){
-      setTimeout(function(){ diagSnap(ms === 0 ? 'carga' : 'carga+' + ms); }, ms + 50);
-    });
-  });
-  window.addEventListener('resize', function(){ diagSnap('resize'); });
-  if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ diagSnap('vv-resize'); });
-  document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible') setTimeout(function(){ diagSnap('volvió'); }, 300);
-  });
 })();
 </script>
 </head>
 <body>
-<div id="saProbe" aria-hidden="true" style="position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)"></div>
 
 <div class="app">
   <div class="display">
@@ -546,14 +478,6 @@
     <button type="button" class="sheet-btn" id="installBtn" hidden>Instalar en este dispositivo</button>
     <button type="submit" class="sheet-btn" value="close" id="dlgClose">Cerrar</button>
     <p class="sheet-hint">Toca una tasa para ajustarla a mano · fuente oficial: <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a></p>
-    <details class="diag" id="diagBox">
-      <summary>Diagnóstico de pantalla</summary>
-      <pre id="diagOut"></pre>
-      <div class="diag-actions">
-        <button type="button" class="sheet-btn" id="diagCopy">Copiar</button>
-        <button type="button" class="sheet-btn" id="diagClear">Borrar</button>
-      </div>
-    </details>
   </form>
 </dialog>
 
@@ -563,7 +487,7 @@
 (function(){
   "use strict";
 
-  var APP_VERSION = "1.8.1";
+  var APP_VERSION = "1.9.0";
 
   var digitsEl = document.getElementById('digits');
   var exprLineEl = document.getElementById('exprLine');
@@ -1003,31 +927,8 @@
     maybePromptUpdate();
   }
 
-  // Diagnóstico de pantalla (ver diagSnap en el <head>).
-  var diagOut = document.getElementById('diagOut');
-  function renderDiag(){
-    var list = [];
-    try{ list = JSON.parse(localStorage.getItem('diag.screen') || '[]'); }catch(e){}
-    diagOut.textContent = list.length ? list.map(function(s){
-      var m = s.m;
-      return s.t + ' ' + s.ev + ' [' + m.nav + ', ' + m.mode + ']\n' +
-        '  iH ' + m.iH + ' oH ' + m.oH + ' cH ' + m.cH + ' vv ' + m.vv + ' scr ' + m.scr + '\n' +
-        '  sY ' + m.sY + ' app ' + m.app + ' body ' + m.body + ' bar ' + m.bar + ' sa ' + m.sa;
-    }).join('\n') + '\n' + navigator.userAgent : "Sin datos todavía.";
-  }
-  document.getElementById('diagBox').addEventListener('toggle', renderDiag);
-  document.getElementById('diagCopy').addEventListener('click', function(){
-    renderDiag();
-    if(navigator.clipboard) navigator.clipboard.writeText('v' + APP_VERSION + '\n' + diagOut.textContent).catch(function(){});
-  });
-  document.getElementById('diagClear').addEventListener('click', function(){
-    try{ localStorage.removeItem('diag.screen'); }catch(e){}
-    renderDiag();
-  });
-
   function openAppDialog(auto){
     autoPrompted = auto;
-    renderDiag();
     if(updateAvailable()) promptedFor = latestVersion || 'sw'; // ya lo vio: no volver a abrirlo solo
     renderAppUI();
     if(appDialog.open) return;
@@ -1097,7 +998,6 @@
       // Pasa por el SW (que lo vuelve a guardar en su cache) pero saltándose el cache HTTP.
       await Promise.all(SHELL_FILES.map(function(u){ return fetch(u, { cache: 'reload' }); }));
     }catch(e){}
-    if(window.diagSnap) window.diagSnap('antes de recargar');
     location.reload();
   }
 
